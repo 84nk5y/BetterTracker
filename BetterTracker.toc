@@ -1,0 +1,8 @@
+## Interface: 120000
+## Title: BetterTracker
+## Category-enUS: Better UI
+## IconTexture: 618858
+## Notes: Tracks stuff
+## Author: Banksy
+
+professionTracker.lua
