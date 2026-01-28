@@ -48,6 +48,12 @@ local function UpdateWorldQuestBadge(count)
     end
 end
 
+local function RefreshWorldQuestsPanel()
+    if QuestMapFrame.WorldQuestsPanel and QuestMapFrame.WorldQuestsPanel:IsShown() then
+        QuestMapFrame.WorldQuestsPanel:RefreshList()
+    end
+end
+
 local function GetTotalGoldFromQuest(questID)
     local totalMoney = 0
 
@@ -118,6 +124,8 @@ local function ProcessQuests()
 
     UpdateWorldQuestBadge(count)
 
+    RefreshWorldQuestsPanel()
+
     C_Timer.After(QUEST_SCAN_RATE, ScanForGoldQuests)
 end
 
@@ -177,10 +185,26 @@ function ScanForGoldQuests()
 end
 
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:SetScript("OnEvent", function(self, event, isInitialLogin, isReloadingUi)
-    if isInitialLogin or isReloadingUi then
+f:RegisterEvent("QUEST_TURNED_IN")
+f:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(10, ScanForGoldQuests)
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    elseif event == "QUEST_TURNED_IN" then
+        local questID = ...
+
+        if FOUND_WORLD_QUESTS and FOUND_WORLD_QUESTS[questID] then
+            FOUND_WORLD_QUESTS[questID] = nil
+            
+            -- Debug print (optional)
+            -- print("|cFF00FF00[GoldScanner]:|r Quest " .. questID .. " completed. Removing from list.")
+
+            RefreshWorldQuestsPanel()
+
+            local newCount = 0
+            for _ in pairs(FOUND_WORLD_QUESTS) do newCount = newCount + 1 end
+            UpdateWorldQuestBadge(newCount)
+        end
     end
 end)
 
