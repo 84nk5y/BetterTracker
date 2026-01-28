@@ -188,6 +188,7 @@ local function getProfessionDetails(profession)
 end
 
 
+
 local function createBadge(point)
     local badge = CreateFrame("Frame", "MyProfessionsBadge", ProfessionMicroButton)
     badge:SetSize(20, 20)
@@ -208,11 +209,15 @@ local function createBadge(point)
 
     badge.text = badge:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     badge.text:SetPoint("CENTER", badge, "CENTER", 0, 0)
+    badge.text:SetText("*")
 
     return badge
 end
 
 local f = CreateFrame("Frame")
+
+f.badgeProf1 = createBadge("TOPRIGHT")
+f.badgeProf2 = createBadge("TOPLEFT")
 
 function f:UpdateProf1Badge()
     local text = getKPweeklyRemaining(self.prof1)
@@ -236,9 +241,6 @@ function f:UpdateProf2Badge()
     end
 end
 
-f.badgeProf1 = createBadge("TOPRIGHT")
-f.badgeProf2 = createBadge("TOPLEFT")
-
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("QUEST_TURNED_IN")
 f:RegisterEvent("BAG_UPDATE")
@@ -253,6 +255,7 @@ f:SetScript("OnEvent", function(self, event, ...)
     self:UpdateProf1Badge()
     self:UpdateProf2Badge()
 end)
+
 
 
 local function addKPprogressText(profession)
@@ -311,5 +314,3 @@ ProfessionMicroButton:HookScript("OnEnter", function(self)
         GameTooltip:Show()
     end
 end)
-
-

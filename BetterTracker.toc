@@ -4,5 +4,7 @@
 ## IconTexture: 618858
 ## Notes: Tracks stuff
 ## Author: Banksy
+## RequiredDeps: Blizzard_WorldMap
 
 professionTracker.lua
+worldQuestTracker.xml

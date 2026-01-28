@@ -1,0 +1,103 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="worldQuestTracker.lua"/>
+
+    <Button name="WorldMapFrameGoldTab" parent="QuestMapFrame" inherits="QuestLogTabButtonTemplate" id="4" mixin="WorldQuestTabMixin">
+        <KeyValues>
+            <KeyValue key="displayMode" value="4" type="global"/>
+            <KeyValue key="activeAtlas" value="coin-gold" type="string"/>
+            <KeyValue key="inactiveAtlas" value="coin-gold" type="string"/>
+            <KeyValue key="tooltipText" value="Gold Quests" type="global"/>
+        </KeyValues>
+        <Anchors>
+            <Anchor point="TOP" relativeKey="$parent.MapLegendTab" relativePoint="BOTTOM" x="0" y="-3"/>
+        </Anchors>
+        <Scripts>
+            <OnLoad method="OnLoad"/>
+        </Scripts>
+        <Scripts>
+            <OnClick method="OnClick"/>
+        </Scripts>
+    </Button>
+
+    <Frame parentKey="WorldQuestsPanel" parentArray="ContentFrames" parent="QuestMapFrame" hidden="true" enableMouse="true" mixin="WorldQuestsPanelMixin">
+        <KeyValues>
+            <KeyValue key="displayMode" value="4" type="global"/>
+        </KeyValues>
+        <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.ContentsAnchor" y="-29"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.ContentsAnchor" x="-22"/>
+        </Anchors>
+        <Frames>
+            <Frame parentKey="BorderFrame" inherits="QuestLogBorderFrameTemplate"/>
+            <ScrollFrame parentKey="ScrollFrame" name="WorldQuestsScrollFrame" inherits="ScrollFrameTemplate">
+                <KeyValues>
+                    <KeyValue key="scrollBarX" value="8" type="number"/>
+                    <KeyValue key="scrollBarTopY" value="2" type="number"/>
+                    <KeyValue key="scrollBarBottomY" value="-4" type="number"/>
+                </KeyValues>
+                <Anchors>
+                    <Anchor point="TOPLEFT"/>
+                    <Anchor point="BOTTOMRIGHT"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture parentKey="Background" atlas="QuestLog-main-background" useAtlasSize="true">
+                            <Anchors>
+                                <Anchor point="TOPLEFT"/>
+                                <Anchor point="BOTTOMRIGHT"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+                <ScrollChild>
+                    <Frame parentKey="ScrollChild" inherits="VerticalLayoutFrame">
+                        <KeyValues>
+                            <KeyValue key="leftPadding" value="4" type="number"/>
+                            <KeyValue key="rightPadding" value="0" type="number"/>
+                            <KeyValue key="topPadding" value="8" type="number"/>
+                            <KeyValue key="spacing" value="2" type="number"/>
+                        </KeyValues>
+                    </Frame>
+                </ScrollChild>
+            </ScrollFrame>
+        </Frames>
+        <Layers>
+            <Layer level="ARTWORK">
+                <FontString parentKey="TitleText" inherits="Game15Font_Shadow" wordwrap="false" text="World Quests">
+                    <Anchors>
+                        <Anchor point="BOTTOM" relativeKey="$parent.BorderFrame" relativePoint="TOP" x="-1" y="3"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+    </Frame>
+
+    <Button name="WorldQuestEntryTemplate" virtual="true">
+        <Size x="290" y="24"/>
+        <KeyValues>
+            <KeyValue key="layoutIndex" value="1" type="number"/>
+        </KeyValues>
+        <Layers>
+            <Layer level="ARTWORK">
+                <Texture parentKey="Icon">
+                    <Anchors>
+                        <Anchor point="LEFT" x="6" y="0"/>
+                    </Anchors>
+                </Texture>
+                <FontString parentKey="Reward" inherits="GameFontHighlightSmall" justifyH="RIGHT">
+                    <Anchors>
+                        <Anchor point="RIGHT" x="-8" y="0"/>
+                    </Anchors>
+                </FontString>
+                <FontString parentKey="Title" inherits="GameFontNormalSmallLeft" justifyH="LEFT" maxLines="1">
+                    <Anchors>
+                        <Anchor point="LEFT" relativeKey="$parent.Icon" relativePoint="RIGHT" x="6" y="0"/>
+                        <Anchor point="RIGHT" relativeKey="$parent.Reward" relativePoint="LEFT" x="-10" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <HighlightTexture file="Interface\QuestFrame\UI-QuestLogTitleHighlight" alphaMode="ADD"/>
+    </Button>
+</Ui>
