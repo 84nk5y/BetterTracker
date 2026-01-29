@@ -10,6 +10,12 @@ local WORLD_QUEST_ZONES = {
     [2371] = "K'aresh"
 }
 
+local QUEST_SCAN_RATE = 5 * 60
+local MAPS_TO_SCAN = {}
+local WORLD_QUESTS_TO_SCAN = {}
+local FOUND_WORLD_QUESTS = {}
+
+
 local function createBadge(point)
     local badge = CreateFrame("Frame", "MyWorldQuestBadge", QuestLogMicroButton)
     badge:SetSize(20, 20)
@@ -39,16 +45,14 @@ local f = CreateFrame("Frame")
 
 f.worldQuestBadge = createBadge("TOP")
 
-local function UpdateWorldQuestBadge(count)
+local function UpdateUI(count)
     if count and count > 0 then
         f.worldQuestBadge.text:SetText(tostring(count))
         f.worldQuestBadge:Show()
     else
         f.worldQuestBadge:Hide()
     end
-end
 
-local function RefreshWorldQuestsPanel()
     if QuestMapFrame.WorldQuestsPanel and QuestMapFrame.WorldQuestsPanel:IsShown() then
         QuestMapFrame.WorldQuestsPanel:RefreshList()
     end
@@ -78,43 +82,29 @@ local function GetTotalGoldFromQuest(questID)
     return math.floor((tonumber(totalMoney) / 10000)) * 10000
 end
 
-local QUEST_SCAN_RATE = 5 * 60
-local FOUND_WORLD_QUESTS = {}
-local MAPS_TO_SCAN = {}
-
 local function ProcessQuests()
     local count = 0
 
-    for mapID, zoneName in pairs(MAPS_TO_SCAN) do
-        local quests = C_TaskQuest.GetQuestsOnMap(mapID)
+    for questID, zone in pairs(WORLD_QUESTS_TO_SCAN) do
+        if not FOUND_WORLD_QUESTS[questID] then
+            local questTagInfo = C_QuestLog.GetQuestTagInfo(questID)
 
-        if quests then
-            for _, qInfo in ipairs(quests) do
-                local questID = qInfo.questID or qInfo.questId or nil
-
-                if questID and not FOUND_WORLD_QUESTS[questID] then
-                    local questTagInfo = C_QuestLog.GetQuestTagInfo(questID)
-
-                    if questTagInfo and not C_QuestLog.IsComplete(questID) then
-                        --print("Evaluating quest "..id.."/"..qInfo.mapID.."/"..C_QuestLog.GetTitleForQuestID(questID))
-                        local goldAmount = GetTotalGoldFromQuest(questID) or 0
-                        
-                        -- only quests that reward more than 500 gold
-                        if goldAmount > (500 * 10000) then
-                            local quest = {
-                                ID = questID,
-                                name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
-                                amount = goldAmount,
-                                tagInfo = questTagInfo,
-                                mapID = qInfo.mapID,
-                                zoneID = id,
-                                zoneName = zoneName
-                            }
-                            FOUND_WORLD_QUESTS[quest.ID] = quest
-                            --print("Found quest "..quest.zoneID.."/"..quest.mapID.."/"..quest.name.." = "..GetMoneyString(quest.amount, true))
-                            count = count + 1
-                        end
-                    end
+            if questTagInfo and not C_QuestLog.IsComplete(questID) then
+                --print("Evaluating quest "..id.."/"..qInfo.mapID.."/"..C_QuestLog.GetTitleForQuestID(questID))
+                local goldAmount = GetTotalGoldFromQuest(questID) or 0
+                
+                -- only quests that reward more than 500 gold
+                if goldAmount > (500 * 10000) then
+                    local quest = {
+                        ID = questID,
+                        name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
+                        amount = goldAmount,
+                        tagInfo = questTagInfo,
+                        zone = zone
+                    }
+                    FOUND_WORLD_QUESTS[quest.ID] = quest
+                    --print("Found quest "..quest.zoneID.."/"..quest.mapID.."/"..quest.name.." = "..GetMoneyString(quest.amount, true))
+                    count = count + 1
                 end
             end
         end
@@ -122,28 +112,45 @@ local function ProcessQuests()
 
     --print("|cFFADD8E6Finished scanning found "..tostring(count).." gold world quests")
 
-    UpdateWorldQuestBadge(count)
-
-    RefreshWorldQuestsPanel()
+    UpdateUI(count)
 
     C_Timer.After(QUEST_SCAN_RATE, ScanForGoldQuests)
 end
 
 local function RefreshQuestRewards()
-    for mapID, zoneName in pairs(MAPS_TO_SCAN) do
+    local mapList = {}
+    for mapID, _ in pairs(MAPS_TO_SCAN) do
+        table.insert(mapList, mapID)
+    end
+
+    WORLD_QUESTS_TO_SCAN = {}
+
+    local function ScanNextMap(index)
+        local mapID = mapList[index]
         local quests = C_TaskQuest.GetQuestsOnMap(mapID)
 
         if quests then
             for _, qInfo in ipairs(quests) do
-                local questID = qInfo.questID or qInfo.questId or nil
-                if questID then
+                local questID = qInfo.questId or qInfo.questID
+                if questID and not WORLD_QUESTS_TO_SCAN[questID] then
                     C_TaskQuest.RequestPreloadRewardData(questID)
+                    WORLD_QUESTS_TO_SCAN[questID] = MAPS_TO_SCAN[mapID]
                 end
             end
         end
+
+        if index < #mapList then
+            C_Timer.After(0.01, function() ScanNextMap(index + 1) end)
+        else
+            C_Timer.After(1, ProcessQuests)
+        end
     end
 
-    C_Timer.After(1, ProcessQuests)
+    if #mapList > 0 then
+        ScanNextMap(1)
+    else
+        C_Timer.After(0.5, ProcessQuests)
+    end
 end
 
 local function DrillThroughMaps(mapInfo)
@@ -159,8 +166,8 @@ local function DrillThroughMaps(mapInfo)
 end
 
 local function RefreshMaps()
-    for mapID, zoneName in pairs(WORLD_QUEST_ZONES) do
-        MAPS_TO_SCAN[mapID] = zoneName
+    for mapID, zone in pairs(WORLD_QUEST_ZONES) do
+        MAPS_TO_SCAN[mapID] = zone
 
         local mapInfo = C_Map.GetMapInfo(mapID)
         -- This is the "secret sauce" - requesting the ArtID often forces a data sync
@@ -197,13 +204,10 @@ f:SetScript("OnEvent", function(self, event, ...)
         if FOUND_WORLD_QUESTS and FOUND_WORLD_QUESTS[questID] then
             FOUND_WORLD_QUESTS[questID] = nil
 
-            -- print("|cFF00FF00[GoldScanner]:|r Quest " .. questID .. " completed. Removing from list.")
-
-            RefreshWorldQuestsPanel()
-
             local newCount = 0
             for _ in pairs(FOUND_WORLD_QUESTS) do newCount = newCount + 1 end
-            UpdateWorldQuestBadge(newCount)
+
+            UpdateUI(newCount)
         end
     end
 end)
