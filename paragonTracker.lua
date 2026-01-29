@@ -101,9 +101,14 @@ local function GetAvailableParagonCaches()
 end
 
 local function CreateTooltipText()
-    local detailsText = "  None"
+    local detailsText = ""
 
     for _, cache in ipairs(AVAILABLE_PARAGON_CACHES) do
+        detailsText = detailsText .. "  " .. cache.name .. "\n"
+    end
+
+    if #detailsText <= 0 then
+         detailsText = "  None!"
     end
 
     local headerText = "|cFFFFD100Paragon caches:|r"
@@ -114,7 +119,19 @@ end
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("QUEST_TURNED_IN")
 f:SetScript("OnEvent", function(self, event, ...)
-    GetAvailableParagonCaches()
+    if event == "PLAYER_LOGIN" then
+        GetAvailableParagonCaches()
+    elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
+        local questID = ...
+
+        for i = #AVAILABLE_PARAGON_CACHES, 1, -1 do
+            if AVAILABLE_PARAGON_CACHES[i].guestID == questID then
+                table.remove(AVAILABLE_PARAGON_CACHES, i)
+            end
+        end
+
+        UpdateParagonBadge()
+    end
 end)
 
 AchievementMicroButton:HookScript("OnEnter", function(self)
