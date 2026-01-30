@@ -25,7 +25,7 @@ local function CreateBadge(point)
     badge:SetPoint(point, QuestLogMicroButton, "TOP", 0, 6)
 
     badge.bg = badge:CreateTexture(nil, "BACKGROUND")
-    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask") 
+    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
     badge.bg:SetAllPoints(badge)
     badge.bg:SetVertexColor(0, 0, 0)
 
@@ -283,8 +283,8 @@ end
 
 
 local function FormatQuestTime(totalMinutes)
-    if not totalMinutes or totalMinutes <= 0 then 
-        return "|cffff0000Expired|r" 
+    if not totalMinutes or totalMinutes <= 0 then
+        return "|cffff0000Expired|r"
     end
 
     local days = math.floor(totalMinutes / 1440)
@@ -328,7 +328,7 @@ function WorldQuestsPanelMixin:RefreshList()
 
     for i, quest in ipairs(sortedQuests) do
         local entry = self.pool:Acquire()
-    
+
         entry.layoutIndex = i
         entry.questID = quest.ID
         entry.questName = quest.name
