@@ -269,7 +269,7 @@ WorldQuestTabMixin = {}
 function WorldQuestTabMixin:OnLoad()
     self.SelectedTexture:Hide()
     self.Icon:SetAtlas(self.activeAtlas)
-    self.Icon:SetSize(24, 24)
+    self.Icon:SetSize(21, 21)
     self.Icon:Show()
     self.tooltipText = "Gold Quests"
 end
@@ -331,6 +331,8 @@ function WorldQuestsPanelMixin:RefreshList()
     
         entry.layoutIndex = i
         entry.questID = quest.ID
+        entry.questName = quest.name
+        entry.minutesLeft = quest.minutesLeft
 
         local atlas, width, height = QuestUtil.GetWorldQuestAtlasInfo(quest.ID, quest.tagInfo, false);
         if atlas then
@@ -359,8 +361,8 @@ function WorldQuestsPanelMixin:RefreshList()
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 
             if GameTooltip:IsOwned(self) then
-                GameTooltip:SetText("Rewards", NORMAL_FONT_COLOR:GetRGB());
-                GameTooltip:AddLine(" ");
+                GameTooltip:SetText("Time left: "..FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB());
+                GameTooltip:AddLine("Rewards:", NORMAL_FONT_COLOR:GetRGB());
                 GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID, TOOLTIP_QUEST_REWARDS_STYLE_NONE);
                 GameTooltip_SetTooltipWaitingForData(GameTooltip, false);
                 GameTooltip:Show()
