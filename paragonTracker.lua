@@ -1,3 +1,4 @@
+local SCAN_IN_PROGRESS = false
 local AVAILABLE_PARAGON_CACHES = {}
 
 
@@ -31,7 +32,10 @@ local f = CreateFrame("Frame")
 f.badgeParagon = CreateBadge("TOP")
 
 local function UpdateParagonBadge()
-    local count =  #AVAILABLE_PARAGON_CACHES
+    local count = 0
+    for _, _ in pairs(AVAILABLE_PARAGON_CACHES) do
+        count = count + 1
+    end
 
     if count and count > 0 then
         f.badgeParagon.text:SetText(tostring(count))
@@ -41,9 +45,10 @@ local function UpdateParagonBadge()
     end
 end
 
-
-
 local function GetAvailableParagonCaches()
+    if SCAN_IN_PROGRESS then return end
+
+    SCAN_IN_PROGRESS = true
     AVAILABLE_PARAGON_CACHES = {}
 
     local factionQueue = {}
@@ -59,6 +64,7 @@ local function GetAvailableParagonCaches()
         table.insert(factionQueue, { id = factionID, isMajor = true })
     end
 
+    local count = 0
     local function ScanParagonBatch(startIndex)
         local batchSize = 2 -- Number of factions per frame
         local endIndex = math.min(startIndex + batchSize - 1, #factionQueue)
@@ -79,11 +85,10 @@ local function GetAvailableParagonCaches()
                         name = GetFactionInfoByID(factionID) or "Unknown Faction"
                     end
 
-                    table.insert(AVAILABLE_PARAGON_CACHES, {
-                        id = factionID,
+                    AVAILABLE_PARAGON_CACHES[factionID] = {
                         name = name,
                         questID = rewardQuestID
-                    })
+                    }
                 end
             end
         end
@@ -92,6 +97,8 @@ local function GetAvailableParagonCaches()
             C_Timer.After(0.01, function() ScanParagonBatch(endIndex + 1) end)
         else
             UpdateParagonBadge()
+
+            SCAN_IN_PROGRESS = false
         end
     end
 
@@ -103,7 +110,7 @@ end
 local function CreateTooltipText()
     local detailsText = ""
 
-    for _, cache in ipairs(AVAILABLE_PARAGON_CACHES) do
+    for _, cache in pairs(AVAILABLE_PARAGON_CACHES) do
         detailsText = detailsText .. "  " .. cache.name .. "\n"
     end
 
@@ -116,21 +123,23 @@ local function CreateTooltipText()
 end
 
 
-f:RegisterEvent("PLAYER_LOGIN")
+
 f:RegisterEvent("QUEST_TURNED_IN")
+f:RegisterEvent("UPDATE_FACTION")
 f:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" then
+    if event == "UPDATE_FACTION" then
         GetAvailableParagonCaches()
-    elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
+    elseif event == "QUEST_TURNED_IN" then
         local questID = ...
 
-        for i = #AVAILABLE_PARAGON_CACHES, 1, -1 do
-            if AVAILABLE_PARAGON_CACHES[i].guestID == questID then
-                table.remove(AVAILABLE_PARAGON_CACHES, i)
+        for factionID, cache in pairs(AVAILABLE_PARAGON_CACHES) do
+            if questID == cache.questID then
+                AVAILABLE_PARAGON_CACHES[factionID] = nil
+
+                UpdateParagonBadge()
+                break
             end
         end
-
-        UpdateParagonBadge()
     end
 end)
 
