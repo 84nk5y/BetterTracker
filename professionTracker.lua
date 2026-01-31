@@ -50,7 +50,7 @@ end
 local function IsPathMaxedOut(pathID, configID)
     local pathState = C_ProfSpecs.GetStateForPath(pathID, configID)
     if pathState ~= 2 then return false end
-    
+
     local childIDs = C_ProfSpecs.GetChildrenForPath(pathID)
     if #childIDs > 0 then
         for _,childID in ipairs(childIDs) do
@@ -78,11 +78,11 @@ local function GetNodeKP(profession, nodeID)
     local childNodeCurrKP_sum = 0
     local childNodeMaxKP_sum = 0
     local childNodeCurrKP, childNodeMaxKP
-    
+
     if nodeCurrKP < 0 then
         nodeCurrKP = 0
     end
-    
+
     if #nodeInfo.visibleEdges > 0 then
         for _,edge in ipairs(nodeInfo.visibleEdges) do
             childNodeCurrKP, childNodeMaxKP = GetNodeKP(profession, edge.targetNode)
@@ -90,7 +90,7 @@ local function GetNodeKP(profession, nodeID)
             childNodeMaxKP_sum = childNodeMaxKP_sum + childNodeMaxKP
         end
     end
-    
+
     return nodeCurrKP + childNodeCurrKP_sum, nodeMaxKP + childNodeMaxKP_sum
 end
 
@@ -110,7 +110,7 @@ local function GetKPprogress(profession)
     local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(profession.currencyID)
     local currKP = currencyInfo.quantity
     local maxKP = 0
-    
+
     local tabIDs = C_ProfSpecs.GetSpecTabIDsForSkillLine(profession.skillLineID)
     local tabInfo, tabCurrKP, tabMaxKP
     for _,tabID in ipairs(tabIDs) do
@@ -119,11 +119,11 @@ local function GetKPprogress(profession)
         currKP = currKP + tabCurrKP
         maxKP = maxKP + tabMaxKP
     end
-    
+
     if currKP > maxKP then
         currKP = maxKP
     end
-    
+
     return currKP, maxKP
 end
 
@@ -131,11 +131,11 @@ local function CheckProfessionObjective(quests, objectiveGroup)
     local maxQuestCount = #quests
     local complQuestCount = 0
     local objectiveComplete = false
-    
+
     if OBJECTIVE_GROUPS[objectiveGroup].isUnique and maxQuestCount > 1 then
         maxQuestCount = 1
     end
-    
+
     for _,questID in ipairs(quests) do
         if C_QuestLog.IsQuestFlaggedCompleted(questID) then
             complQuestCount = complQuestCount +1
@@ -145,7 +145,7 @@ local function CheckProfessionObjective(quests, objectiveGroup)
     if complQuestCount >= maxQuestCount then
         objectiveComplete = true
     end
-    
+
     return objectiveComplete, (maxQuestCount - complQuestCount)
 end
 
@@ -197,7 +197,7 @@ local function CreateBadge(point)
     badge:SetPoint(point, ProfessionMicroButton, "TOP", 0, 6)
 
     badge.bg = badge:CreateTexture(nil, "BACKGROUND")
-    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask") 
+    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
     badge.bg:SetAllPoints(badge)
     badge.bg:SetVertexColor(0, 0, 0)
 
@@ -209,7 +209,7 @@ local function CreateBadge(point)
 
     badge.text = badge:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     badge.text:SetPoint("CENTER", badge, "CENTER", 0, 0)
-    badge.text:SetText("*")
+    badge.text:SetText("-")
 
     return badge
 end

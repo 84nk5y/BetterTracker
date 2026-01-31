@@ -37,7 +37,7 @@ local function CreateBadge(point)
 
     badge.text = badge:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     badge.text:SetPoint("CENTER", badge, "CENTER", 0, 0)
-    badge.text:SetText("*")
+    badge.text:SetText("-")
 
     return badge
 end
@@ -207,7 +207,7 @@ ScanForGoldQuests = function()
     end
 
     if f.worldQuestBadge:IsShown() then
-        f.worldQuestBadge.text:SetText("*")
+        f.worldQuestBadge.text:SetText("-")
     end
 
     SCAN_IN_PROGRESS = true

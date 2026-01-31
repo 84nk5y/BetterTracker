@@ -10,7 +10,7 @@ local function CreateBadge(point)
     badge:SetPoint(point, AchievementMicroButton, "TOP", 0, 6)
 
     badge.bg = badge:CreateTexture(nil, "BACKGROUND")
-    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask") 
+    badge.bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
     badge.bg:SetAllPoints(badge)
     badge.bg:SetVertexColor(0, 0, 0)
 
@@ -22,7 +22,7 @@ local function CreateBadge(point)
 
     badge.text = badge:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     badge.text:SetPoint("CENTER", badge, "CENTER", 0, 0)
-    badge.text:SetText("*")
+    badge.text:SetText("-")
 
     return badge
 end
@@ -75,7 +75,7 @@ local function GetAvailableParagonCaches()
 
             if C_Reputation.IsFactionParagon(factionID) then
                 local _, _, rewardQuestID, hasRewardPending = C_Reputation.GetFactionParagonInfo(factionID)
-                
+
                 if hasRewardPending then
                     local name = ""
                     if item.isMajor then
