@@ -6,6 +6,6 @@
 ## Author: Banksy
 ## RequiredDeps: Blizzard_WorldMap
 
-professionTracker.lua
-paragonTracker.lua
-worldQuestTracker.xml
+ProfessionTracker.lua
+ParagonTracker.lua
+WorldQuestTracker.xml
