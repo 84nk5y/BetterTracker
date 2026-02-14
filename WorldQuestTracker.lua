@@ -11,15 +11,34 @@ local WORLD_QUEST_ZONES = {
     [2472] = "Tazavesh"
 }
 
-
 local SCAN_RATE = 5 * 60
-local WORLD_QUESTS_TO_SCAN = {}
-local FOUND_WORLD_QUESTS = {}
-local UDATING_UI = false
 
 
-local function CreateBadge(point)
-    local badge = CreateFrame("Frame", "MyWorldQuestBadge", QuestLogMicroButton)
+BT_SavedVars = BT_SavedVars or {}
+local SavedVars = nil
+
+
+local WorldQuestTrackerMixin = {}
+
+function WorldQuestTrackerMixin:Setup()
+    self.worldQuestsToScan = {}
+    self.foundWorldQuests = {}
+    self.updatingUI = false
+    self.foundWorldQuestsCount = 0
+
+    self.worldQuestBadge = self:CreateBadge("TOP")
+
+    self:RegisterEvent("VARIABLES_LOADED")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
+    self:RegisterEvent("QUEST_DATA_LOAD_RESULT")
+    self:RegisterEvent("QUEST_TURNED_IN")
+    self:RegisterEvent("QUEST_REMOVED")
+
+    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+end
+
+function WorldQuestTrackerMixin:CreateBadge(point)
+    local badge = CreateFrame("Frame", nil, QuestLogMicroButton)
     badge:SetSize(20, 20)
     badge:SetFrameStrata("MEDIUM")
     badge:SetFrameLevel(QuestLogMicroButton:GetFrameLevel() + 10)
@@ -43,62 +62,28 @@ local function CreateBadge(point)
     return badge
 end
 
-local f = CreateFrame("Frame")
-
-f.worldQuestBadge = CreateBadge("TOP")
-
--- local function FormatDebugTime(ms)
---     local totalSeconds = math.floor(ms / 1000)
---     local milliseconds = math.floor(ms % 1000)
---     local seconds = totalSeconds % 60
---     local minutes = math.floor(totalSeconds / 60) % 60
---     local hours = math.floor(totalSeconds / 3600)
---     return string.format("%02d:%02d:%02d:%03d", hours, minutes, seconds, milliseconds)
--- end
-
-local function UpdateUI()
-    -- print("UpdateUI at "..FormatDebugTime(debugprofilestop()))
-    -- for questID, quest in pairs(FOUND_WORLD_QUESTS) do
-    --     if not WORLD_QUESTS_TO_SCAN[questID] then
-    --         local questName = quest.name
-    --         local mapName = quest.zone
-
-    --         print("    Quest not found in WORLD_QUESTS_TO_SCAN: "..questID.." '"..questName.."' on '"..mapName.."'")
-    --     end
-    -- end
-    -- for questID, mapID in pairs(WORLD_QUESTS_TO_SCAN) do
-    --     if not FOUND_WORLD_QUESTS[questID] then
-    --         local questName = C_QuestLog.GetTitleForQuestID(questID)
-    --         local mapName = C_Map.GetMapInfo(mapID).name or "Unknown Zone"
-
-    --         print("    Quest not found in FOUND_WORLD_QUESTS: "..questID.." '"..questName.."' on '"..mapName.."'")
-    --     end
-    -- end
-
-    local count = 0
-    for _ in pairs(FOUND_WORLD_QUESTS) do count = count + 1 end
-
-    if count > 0 then
-        f.worldQuestBadge.text:SetText(tostring(count))
-        f.worldQuestBadge:Show()
+function WorldQuestTrackerMixin:UpdateUI()
+    if self.foundWorldQuestsCount > 0 then
+        self.worldQuestBadge.text:SetText(self.foundWorldQuestsCount)
+        self.worldQuestBadge:Show()
     else
-        f.worldQuestBadge:Hide()
+        self.worldQuestBadge:Hide()
     end
 
-    if QuestMapFrame.WorldQuestsPanel and QuestMapFrame.WorldQuestsPanel:IsShown() then
+    if QuestMapFrame and QuestMapFrame.WorldQuestsPanel and QuestMapFrame.WorldQuestsPanel:IsShown() then
         QuestMapFrame.WorldQuestsPanel:RefreshList()
     end
 
-    UDATING_UI = false
+    self.updatingUI = false
 end
 
-local function GetTotalGoldFromQuest(questID)
+function WorldQuestTrackerMixin:GetTotalGoldFromQuest(questID)
     local totalMoney = 0
 
     C_TaskQuest.RequestPreloadRewardData(questID)
 
-    local moneyReward = GetQuestLogRewardMoney(questID)
-    if moneyReward and moneyReward > 0 then
+    local moneyReward = GetQuestLogRewardMoney(questID) or 0
+    if moneyReward > 0 then
         totalMoney = totalMoney + moneyReward
     end
 
@@ -111,14 +96,20 @@ local function GetTotalGoldFromQuest(questID)
         end
     end
 
-    return math.floor((tonumber(totalMoney) / 10000)) * 10000
+    return math.floor(totalMoney / 10000) * 10000
 end
 
-local function ProcessQuest(questID)
+function WorldQuestTrackerMixin:ProcessQuest(questID)
     if not questID then return end
 
     if C_QuestLog.IsComplete(questID) or not C_TaskQuest.IsActive(questID) then
-        FOUND_WORLD_QUESTS[questID] = nil
+        if self.foundWorldQuests[questID] then
+            self.foundWorldQuests[questID] = nil
+            self.foundWorldQuestsCount = self.foundWorldQuestsCount - 1
+        end
+
+        self.worldQuestsToScan[questID] = nil
+
         return
     end
 
@@ -129,10 +120,14 @@ local function ProcessQuest(questID)
         local questTagInfo = C_QuestLog.GetQuestTagInfo(questID)
         local mapID = C_TaskQuest.GetQuestZoneID(questID)
         local mapName = mapID and C_Map.GetMapInfo(mapID) and C_Map.GetMapInfo(mapID).name or "Unknown Zone"
-        local goldAmount = GetTotalGoldFromQuest(questID) or 0
-        local minutesLeft= C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0
+        local goldAmount = self:GetTotalGoldFromQuest(questID) or 0
+        local minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0
 
-        if goldAmount > (500 * 10000) then
+        if goldAmount > SavedVars.MinGoldReward then
+            if not self.foundWorldQuests[questID] then
+                self.foundWorldQuestsCount = self.foundWorldQuestsCount + 1
+            end
+
             local quest = {
                 ID = questID,
                 name = questName,
@@ -141,38 +136,23 @@ local function ProcessQuest(questID)
                 minutesLeft = minutesLeft,
                 zone = mapName
             }
-            FOUND_WORLD_QUESTS[questID] = quest
-        end
-
-
-    end
-
-    if not UDATING_UI then
-        UDATING_UI = true
-        C_Timer.After(1, UpdateUI)
-    end
-end
-
-local RefreshQuestRewards
-
-local function RefreshQuests()
-    for questID, _ in pairs(WORLD_QUESTS_TO_SCAN) do
-        if not FOUND_WORLD_QUESTS[questID] then
-            ProcessQuest(questID)
+            self.foundWorldQuests[questID] = quest
         end
     end
 
-    -- queue the next quest refresh cycle
-    C_Timer.After(SCAN_RATE, RefreshQuestRewards)
+    if not self.updatingUI then
+        self.updatingUI = true
+        C_Timer.After(1, function() self:UpdateUI() end)
+    end
 end
 
-RefreshQuestRewards = function()
+function WorldQuestTrackerMixin:RefreshQuestRewards()
     local mapList = {}
-    for mapID, _ in pairs(WORLD_QUEST_ZONES) do
+    for mapID in pairs(WORLD_QUEST_ZONES) do
         table.insert(mapList, mapID)
     end
 
-    WORLD_QUESTS_TO_SCAN = {}
+    self.worldQuestsToScan = {}
 
     -- Staggered scanning to reduce FPS impact
     local function ScanMapBatch(index)
@@ -186,13 +166,13 @@ RefreshQuestRewards = function()
                 if questID then
                     local isWorldQuest = C_QuestLog.IsWorldQuest(questID)
 
-                    if isWorldQuest and not WORLD_QUESTS_TO_SCAN[questID] then
+                    if isWorldQuest and not self.worldQuestsToScan[questID] then
                         -- try to force server to provide quest data
                         C_TaskQuest.GetQuestZoneID(questID)
                         C_TaskQuest.RequestPreloadRewardData(questID)
                         C_QuestLog.RequestLoadQuestByID(questID)
 
-                        WORLD_QUESTS_TO_SCAN[questID] = mapID
+                        self.worldQuestsToScan[questID] = mapID
                     end
                 end
             end
@@ -201,8 +181,7 @@ RefreshQuestRewards = function()
         if index < #mapList then
             C_Timer.After(0.1, function() ScanMapBatch(index + 1) end)
         else
-            -- to ensure no detected quest is lost (in case quest data event is not triggered)
-            C_Timer.After(2, RefreshQuests)
+            C_Timer.After(2, function() self:RefreshQuests() end)
         end
     end
 
@@ -211,45 +190,68 @@ RefreshQuestRewards = function()
     end
 end
 
+function WorldQuestTrackerMixin:RefreshQuests()
+    for questID in pairs(self.worldQuestsToScan) do
+        if not self.foundWorldQuests[questID] then
+            self:ProcessQuest(questID)
+        end
+    end
 
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
-f:RegisterEvent("QUEST_DATA_LOAD_RESULT")
-f:RegisterEvent("QUEST_TURNED_IN")
-f:RegisterEvent("QUEST_REMOVED")
-f:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" then
-        C_Timer.After(1, RefreshQuestRewards)
+    -- queue the next quest refresh cycle
+    C_Timer.After(SCAN_RATE, function() self:RefreshQuestRewards() end)
+end
+
+function WorldQuestTrackerMixin:ResetQuests()
+    self.worldQuestsToScan = {}
+    self.foundWorldQuests = {}
+    self.foundWorldQuestsCount = 0
+
+    self:RefreshQuestRewards()
+end
+
+function WorldQuestTrackerMixin:OnEvent(event, ...)
+    if event == "VARIABLES_LOADED" then
+        BT_SavedVars["WorldQuestTracker"] = BT_SavedVars["WorldQuestTracker"] or {}
+        SavedVars = BT_SavedVars["WorldQuestTracker"]
+        BT_SavedVars["WorldQuestTracker"]["MinGoldReward"] = BT_SavedVars["WorldQuestTracker"]["MinGoldReward"] or (500 * 10000)
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        C_Timer.After(1, function() self:RefreshQuestRewards() end)
     elseif event == "QUEST_DATA_LOAD_RESULT" then
         local questID, success = ...
         if success and questID then
-            ProcessQuest(questID)
+            self:ProcessQuest(questID)
         end
     elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
         local questID = ...
 
-        if FOUND_WORLD_QUESTS and FOUND_WORLD_QUESTS[questID] then
-            FOUND_WORLD_QUESTS[questID] = nil
+        if self.foundWorldQuests and self.foundWorldQuests[questID] then
+            self.foundWorldQuests[questID] = nil
+            self.foundWorldQuestsCount = self.foundWorldQuestsCount - 1
+            self.worldQuestsToScan[questID] = nil
 
-            if not UDATING_UI then
-                UDATING_UI = true
-                C_Timer.After(0.1, UpdateUI)
+            if not self.updatingUI then
+                self.updatingUI = true
+                C_Timer.After(0.1, function() self:UpdateUI() end)
             end
         end
     end
-end)
+end
+
+local WorldQuestTracker = CreateFrame("Frame")
+Mixin(WorldQuestTracker, WorldQuestTrackerMixin)
+WorldQuestTracker:Setup()
+
 
 QuestLogMicroButton:HookScript("OnEnter", function(self)
     if GameTooltip:IsOwned(self) then
         local totalGold = 0
-        for qID, data in pairs(FOUND_WORLD_QUESTS) do
+        for qID, data in pairs(WorldQuestTracker.foundWorldQuests) do
             totalGold = totalGold + data.amount
         end
-        GameTooltip:AddLine("\nTotal Gold available: " .. GetMoneyString(totalGold, true), 1, 1, 1, true)
-
+        GameTooltip:AddLine("\nTotal Gold available: "..GetMoneyString(totalGold, true), 1, 1, 1, true)
         GameTooltip:Show()
     end
 end)
-
 
 
 WorldQuestTabMixin = {}
@@ -264,7 +266,7 @@ end
 
 function WorldQuestTabMixin:OnClick()
     if IsShiftKeyDown() then
-        RefreshQuestRewards()
+        WorldQuestTracker:ResetQuests()
     else
         QuestMapFrame.WorldQuestsPanel:RefreshList()
 
@@ -273,35 +275,13 @@ function WorldQuestTabMixin:OnClick()
 end
 
 
-
-local function FormatQuestTime(totalMinutes)
-    if not totalMinutes or totalMinutes <= 0 then
-        return "|cffff0000Expired|r"
-    end
-
-    local days = math.floor(totalMinutes / 1440)
-    local remainingMinutes = totalMinutes % 1440
-    local hours = math.floor(remainingMinutes / 60)
-    local minutes = remainingMinutes % 60
-
-    if days > 0 then
-        return string.format("|cFFFFD100%dd %dh", days, hours)
-    elseif hours > 0 then
-        return string.format("|cffff0000%dh %dm", hours, minutes)
-    else
-        return string.format("|cffff0000%dm", minutes)
-    end
-end
-
 WorldQuestsPanelMixin = {}
 
 function WorldQuestsPanelMixin:RefreshList()
-    if not FOUND_WORLD_QUESTS then
-        return
-    end
+    if not WorldQuestTracker.foundWorldQuests then return end
 
     local sortedQuests = {}
-    for _, quest in pairs(FOUND_WORLD_QUESTS) do
+    for _, quest in pairs(WorldQuestTracker.foundWorldQuests) do
         quest.minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(quest.ID) or quest.minutesLeft or 0
         table.insert(sortedQuests, quest)
     end
@@ -309,7 +289,6 @@ function WorldQuestsPanelMixin:RefreshList()
         if a.minutesLeft ~= b.minutesLeft then
             return a.minutesLeft < b.minutesLeft
         end
-
         return a.zone < b.zone
     end)
 
@@ -319,6 +298,9 @@ function WorldQuestsPanelMixin:RefreshList()
         self.pool = CreateFramePool("Button", container, "WorldQuestEntryTemplate")
     end
     self.pool:ReleaseAll()
+
+    -- Store reference to panel for use in button callbacks
+    local panel = self
 
     for i, quest in ipairs(sortedQuests) do
         local entry = self.pool:Acquire()
@@ -330,7 +312,7 @@ function WorldQuestsPanelMixin:RefreshList()
         entry.zone = quest.zone
         entry.amount = quest.amount
 
-        local atlas, width, height = QuestUtil.GetWorldQuestAtlasInfo(quest.ID, quest.tagInfo, false);
+        local atlas, width, height = QuestUtil.GetWorldQuestAtlasInfo(quest.ID, quest.tagInfo, false)
         if atlas then
             entry.Icon:SetAtlas(atlas, true)
             local scale = 18 / math.max(width, height)
@@ -357,8 +339,8 @@ function WorldQuestsPanelMixin:RefreshList()
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 
             if GameTooltip:IsOwned(self) then
-                GameTooltip:SetText("Time left: " .. FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB());
-                GameTooltip:AddLine("|cFFFFD100Zone:|r " .. self.zone, 1, 1, 1, true)
+                GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
+                GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
                 GameTooltip:Show()
             end
         end)
@@ -374,5 +356,46 @@ function WorldQuestsPanelMixin:RefreshList()
     end
 
     container:Layout()
-    self.ScrollFrame:UpdateScrollChildRect();
+    self.ScrollFrame:UpdateScrollChildRect()
+end
+
+function WorldQuestsPanelMixin:FormatQuestTime(totalMinutes)
+    if not totalMinutes or totalMinutes <= 0 then return "|cffff0000Expired|r" end
+
+    local days = math.floor(totalMinutes / 1440)
+    local remainingMinutes = totalMinutes % 1440
+    local hours = math.floor(remainingMinutes / 60)
+    local minutes = remainingMinutes % 60
+
+    if days > 0 then
+        return string.format("|cFFFFD100%dd %dh", days, hours)
+    elseif hours > 0 then
+        return string.format("|cffff0000%dh %dm", hours, minutes)
+    else
+        return string.format("|cffff0000%dm", minutes)
+    end
+end
+
+
+
+SLASH_WorldQuestTracker1 = "/bwq"
+
+SlashCmdList["WorldQuestTracker"] = function(arg)
+    local msg = string.lower(arg or "")
+
+    if msg:match("^set%s+%d+$") then
+        local value = tonumber(msg:match("^set%s+(%d+)$"))
+        if value and value >= 1 then
+            SavedVars.MinGoldReward = value * 10000
+            print("|cffB0C4DE[WorldQuestTracker]|r Minimum gold reward set to "..GetMoneyString(SavedVars.MinGoldReward, true))
+
+            WorldQuestTracker:ResetQuests()
+        end
+    elseif msg == "show" then
+        print("|cffB0C4DE[WorldQuestTracker]|r Minimum gold reward is "..GetMoneyString(SavedVars.MinGoldReward, true))
+    else
+        print("|cffB0C4DE[WorldQuestTracker]|r Commands:")
+        print("  /bwq set <value> - Set the minimum gold reward amount")
+        print("  /bwq show - Prints the minimum gold reward amount")
+    end
 end

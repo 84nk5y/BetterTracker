@@ -35,162 +35,26 @@ local CURRENCIES = {
     [393] = {ID = 2794}  --skinning
 }
 
-local function GetSubSkillLineID(profession)
-    local profTradeSkillLines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
-    local subProfessionName = 'Khaz Algar ' .. profession
-    local profInfo
-    for _,v in ipairs(profTradeSkillLines) do
-        profInfo = C_TradeSkillUI.GetProfessionInfoBySkillLineID(v)
-        if profInfo and string.find(profInfo.professionName, subProfessionName) then
-            return profInfo.professionID
-        end
-    end
+
+ProfessionTrackerMixin = {}
+
+function ProfessionTrackerMixin:Setup()
+    self.updatePending = false
+    self.profession1 = nil
+    self.profession2 = nil
+
+    self.badgeProfession1 = self:CreateBadge("TOPRIGHT")
+    self.badgeProfession2 = self:CreateBadge("TOPLEFT")
+
+    self:RegisterEvent("PLAYER_LOGIN")
+    self:RegisterEvent("QUEST_TURNED_IN")
+    self:RegisterEvent("BAG_UPDATE")
+
+    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
 end
 
-local function IsPathMaxedOut(pathID, configID)
-    local pathState = C_ProfSpecs.GetStateForPath(pathID, configID)
-    if pathState ~= 2 then return false end
-
-    local childIDs = C_ProfSpecs.GetChildrenForPath(pathID)
-    if #childIDs > 0 then
-        for _,childID in ipairs(childIDs) do
-            if not IsPathMaxedOut(childID, configID) then return false end
-        end
-    end
-    return true
-end
-
-local function HasMaxKP(skillLineID, configID)
-    local tabIDs = C_ProfSpecs.GetSpecTabIDsForSkillLine(skillLineID)
-    local tabState
-    for _,tabID in ipairs(tabIDs) do
-        tabState =  C_ProfSpecs.GetStateForTab(tabID, configID)
-        if tabState ~= 1 then return false end
-        if not IsPathMaxedOut(C_ProfSpecs.GetRootPathForTab(tabID), configID) then return false end
-    end
-    return true
-end
-
-local function GetNodeKP(profession, nodeID)
-    local nodeInfo = C_Traits.GetNodeInfo(profession.configID, nodeID)
-    local nodeCurrKP = nodeInfo.ranksPurchased - 1
-    local nodeMaxKP = nodeInfo.maxRanks - 1
-    local childNodeCurrKP_sum = 0
-    local childNodeMaxKP_sum = 0
-    local childNodeCurrKP, childNodeMaxKP
-
-    if nodeCurrKP < 0 then
-        nodeCurrKP = 0
-    end
-
-    if #nodeInfo.visibleEdges > 0 then
-        for _,edge in ipairs(nodeInfo.visibleEdges) do
-            childNodeCurrKP, childNodeMaxKP = GetNodeKP(profession, edge.targetNode)
-            childNodeCurrKP_sum = childNodeCurrKP_sum + childNodeCurrKP
-            childNodeMaxKP_sum = childNodeMaxKP_sum + childNodeMaxKP
-        end
-    end
-
-    return nodeCurrKP + childNodeCurrKP_sum, nodeMaxKP + childNodeMaxKP_sum
-end
-
-local function IsKPProfession(profession)
-    if not profession then return false end
-    if not profession.ID or profession.ID == 0 then return false end
-    if not profession.skillLineID or profession.skillLineID == 0 then return false end
-    if not profession.configID or profession.configID == 0 then return false end
-    if not profession.currencyID or profession.currencyID == 0 then return false end
-
-    return true
-end
-
-local function GetKPprogress(profession)
-    if not IsKPProfession(profession) then return end
-
-    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(profession.currencyID)
-    local currKP = currencyInfo.quantity
-    local maxKP = 0
-
-    local tabIDs = C_ProfSpecs.GetSpecTabIDsForSkillLine(profession.skillLineID)
-    local tabInfo, tabCurrKP, tabMaxKP
-    for _,tabID in ipairs(tabIDs) do
-        tabInfo = C_ProfSpecs.GetTabInfo(tabID)
-        tabCurrKP, tabMaxKP = GetNodeKP(profession, tabInfo.rootNodeID)
-        currKP = currKP + tabCurrKP
-        maxKP = maxKP + tabMaxKP
-    end
-
-    if currKP > maxKP then
-        currKP = maxKP
-    end
-
-    return currKP, maxKP
-end
-
-local function CheckProfessionObjective(quests, objectiveGroup)
-    local maxQuestCount = #quests
-    local complQuestCount = 0
-    local objectiveComplete = false
-
-    if OBJECTIVE_GROUPS[objectiveGroup].isUnique and maxQuestCount > 1 then
-        maxQuestCount = 1
-    end
-
-    for _,questID in ipairs(quests) do
-        if C_QuestLog.IsQuestFlaggedCompleted(questID) then
-            complQuestCount = complQuestCount +1
-        end
-    end
-
-    if complQuestCount >= maxQuestCount then
-        objectiveComplete = true
-    end
-
-    return objectiveComplete, (maxQuestCount - complQuestCount)
-end
-
-local function CheckProfessionObjectives(profession, callback)
-    for objGroup, _ in pairs(OBJECTIVES[profession.ID]) do
-        objCompleted, objRemaining = CheckProfessionObjective(OBJECTIVES[profession.ID][objGroup], objGroup)
-        callback(objRemaining, objCompleted, objGroup)
-    end
-end
-
-local function GetKPweeklyRemaining(profession)
-    if not IsKPProfession(profession) or HasMaxKP(profession.skillLineID, profession.configID) then return 0 end
-
-    local allObjRemaining = 0
-    CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
-        if OBJECTIVE_GROUPS[objGroup].free then
-            allObjRemaining = allObjRemaining + objRemaining
-        end
-    end)
-
-    return allObjRemaining
-end
-
-local function GetProfessionDetails(profession)
-    local professionDetails = nil
-
-    if profession then
-        professionDetails = {}
-        professionDetails.ID = select(7, GetProfessionInfo(profession))
-        professionDetails.name = select(1, GetProfessionInfo(profession))
-        professionDetails.skillLineID = GetSubSkillLineID(professionDetails.name)
-        professionDetails.configID = C_ProfSpecs.GetConfigIDForSkillLine(professionDetails.skillLineID)
-
-        if CURRENCIES[professionDetails.ID] then
-            professionDetails.currencyID = CURRENCIES[professionDetails.ID].ID
-        end
-    end
-
-    return professionDetails
-end
-
-
-
-local function CreateBadge(point)
-    local badge = CreateFrame("Frame", "MyProfessionsBadge", ProfessionMicroButton)
+function ProfessionTrackerMixin:CreateBadge(point)
+    local badge = CreateFrame("Frame", nil, ProfessionMicroButton)
     badge:SetSize(20, 20)
     badge:SetFrameStrata("MEDIUM")
     badge:SetFrameLevel(ProfessionMicroButton:GetFrameLevel() + 10)
@@ -214,88 +78,248 @@ local function CreateBadge(point)
     return badge
 end
 
-local f = CreateFrame("Frame")
+function ProfessionTrackerMixin:UpdateProfession1Badge()
+    if not self.profession1 then return end
 
-f.badgeProfession1 = CreateBadge("TOPRIGHT")
-f.badgeProfession2 = CreateBadge("TOPLEFT")
-
-function f:UpdateProfession1Badge()
-    local count = GetKPweeklyRemaining(self.profession1)
+    local count = self:GetKPweeklyRemaining(self.profession1)
 
     if count and count > 0 then
-        self.badgeProfession1.text:SetText(tostring(count))
+        self.badgeProfession1.text:SetText(count)
         self.badgeProfession1:Show()
     else
         self.badgeProfession1:Hide()
     end
 end
 
-function f:UpdateProfession2Badge()
-    local count = GetKPweeklyRemaining(self.profession2)
+function ProfessionTrackerMixin:UpdateProfession2Badge()
+    if not self.profession2 then return end
+
+    local count = self:GetKPweeklyRemaining(self.profession2)
 
     if count and count > 0 then
-        self.badgeProfession2.text:SetText(tostring(count))
+        self.badgeProfession2.text:SetText(count)
         self.badgeProfession2:Show()
     else
         self.badgeProfession2:Hide()
     end
 end
 
-f:RegisterEvent("PLAYER_LOGIN")
-f:RegisterEvent("QUEST_TURNED_IN")
-f:RegisterEvent("BAG_UPDATE")
-f:SetScript("OnEvent", function(self, event, ...)
-    local profession1, profession2 = GetProfessions()
+function ProfessionTrackerMixin:GetSubSkillLineID(profession)
+    local profTradeSkillLines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
+    local subProfessionName = 'Khaz Algar ' .. profession
+    local profInfo
 
-    if event == "PLAYER_LOGIN" then
-        self.profession1 = GetProfessionDetails(profession1)
-        self.profession2 = GetProfessionDetails(profession2)
+    for _, v in ipairs(profTradeSkillLines) do
+        profInfo = C_TradeSkillUI.GetProfessionInfoBySkillLineID(v)
+        if profInfo and profInfo.professionName:find(subProfessionName, 1, true) then
+            return profInfo.professionID
+        end
     end
 
-    self:UpdateProfession1Badge()
-    self:UpdateProfession2Badge()
-end)
+    return nil
+end
 
-local function CreateTooltipText(profession)
-    if not IsKPProfession(profession) then return "" end
+function ProfessionTrackerMixin:IsPathMaxedOut(pathID, configID)
+    local pathState = C_ProfSpecs.GetStateForPath(pathID, configID)
+    if pathState ~= 2 then return false end
 
-    local detailsText = ""
+    local childIDs = C_ProfSpecs.GetChildrenForPath(pathID)
+    if #childIDs > 0 then
+        for _, childID in ipairs(childIDs) do
+            if not self:IsPathMaxedOut(childID, configID) then return false end
+        end
+    end
+    return true
+end
+
+function ProfessionTrackerMixin:HasMaxKP(skillLineID, configID)
+    if not skillLineID or not configID then return false end
+
+    local tabIDs = C_ProfSpecs.GetSpecTabIDsForSkillLine(skillLineID)
+    local tabState
+    for _, tabID in ipairs(tabIDs) do
+        tabState = C_ProfSpecs.GetStateForTab(tabID, configID)
+        if tabState ~= 1 then return false end
+        if not self:IsPathMaxedOut(C_ProfSpecs.GetRootPathForTab(tabID), configID) then return false end
+    end
+    return true
+end
+
+function ProfessionTrackerMixin:GetNodeKP(profession, nodeID)
+    local nodeInfo = C_Traits.GetNodeInfo(profession.configID, nodeID)
+    local nodeCurrKP = nodeInfo.ranksPurchased - 1
+    local nodeMaxKP = nodeInfo.maxRanks - 1
+    local childNodeCurrKP_sum = 0
+    local childNodeMaxKP_sum = 0
+
+    if nodeCurrKP < 0 then
+        nodeCurrKP = 0
+    end
+
+    if #nodeInfo.visibleEdges > 0 then
+        for _, edge in ipairs(nodeInfo.visibleEdges) do
+            local childNodeCurrKP, childNodeMaxKP = self:GetNodeKP(profession, edge.targetNode)
+            childNodeCurrKP_sum = childNodeCurrKP_sum + childNodeCurrKP
+            childNodeMaxKP_sum = childNodeMaxKP_sum + childNodeMaxKP
+        end
+    end
+
+    return nodeCurrKP + childNodeCurrKP_sum, nodeMaxKP + childNodeMaxKP_sum
+end
+
+function ProfessionTrackerMixin:IsKPProfession(profession)
+    return profession
+        and profession.ID and profession.ID ~= 0
+        and profession.skillLineID and profession.skillLineID ~= 0
+        and profession.configID and profession.configID ~= 0
+        and profession.currencyID and profession.currencyID ~= 0
+end
+
+function ProfessionTrackerMixin:GetKPprogress(profession)
+    if not self:IsKPProfession(profession) then return end
+
+    local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(profession.currencyID)
+    local currKP = currencyInfo.quantity
+    local maxKP = 0
+
+    local tabIDs = C_ProfSpecs.GetSpecTabIDsForSkillLine(profession.skillLineID)
+    local tabCurrKP, tabMaxKP
+    for _, tabID in ipairs(tabIDs) do
+        local tabInfo = C_ProfSpecs.GetTabInfo(tabID)
+        tabCurrKP, tabMaxKP = self:GetNodeKP(profession, tabInfo.rootNodeID)
+        currKP = currKP + tabCurrKP
+        maxKP = maxKP + tabMaxKP
+    end
+
+    if currKP > maxKP then
+        currKP = maxKP
+    end
+
+    return currKP, maxKP
+end
+
+function ProfessionTrackerMixin:CheckProfessionObjective(quests, objectiveGroup)
+    local maxQuestCount = #quests
+    local complQuestCount = 0
+    local objectiveComplete = false
+
+    if OBJECTIVE_GROUPS[objectiveGroup].isUnique and maxQuestCount > 1 then
+        maxQuestCount = 1
+    end
+
+    for _, questID in ipairs(quests) do
+        if C_QuestLog.IsQuestFlaggedCompleted(questID) then
+            complQuestCount = complQuestCount + 1
+        end
+    end
+
+    if complQuestCount >= maxQuestCount then
+        objectiveComplete = true
+    end
+
+    return objectiveComplete, (maxQuestCount - complQuestCount)
+end
+
+function ProfessionTrackerMixin:CheckProfessionObjectives(profession, callback)
+    for objGroup in pairs(OBJECTIVES[profession.ID]) do
+        local objCompleted, objRemaining = self:CheckProfessionObjective(OBJECTIVES[profession.ID][objGroup], objGroup)
+        callback(objRemaining, objCompleted, objGroup)
+    end
+end
+
+function ProfessionTrackerMixin:GetKPweeklyRemaining(profession)
+    if not self:IsKPProfession(profession) or self:HasMaxKP(profession.skillLineID, profession.configID) then return 0 end
+
+    local allObjRemaining = 0
+    self:CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
+        if OBJECTIVE_GROUPS[objGroup].free then
+            allObjRemaining = allObjRemaining + objRemaining
+        end
+    end)
+
+    return allObjRemaining
+end
+
+function ProfessionTrackerMixin:GetProfessionDetails(professionIndex)
+    if not professionIndex then return nil end
+
+    local professionDetails = {}
+
+    local name, _, _, _, _, _, skillLine = GetProfessionInfo(professionIndex)
+    professionDetails.ID = skillLine
+    professionDetails.name = name
+    professionDetails.skillLineID = self:GetSubSkillLineID(professionDetails.name)
+    professionDetails.configID = C_ProfSpecs.GetConfigIDForSkillLine(professionDetails.skillLineID)
+
+    if CURRENCIES[professionDetails.ID] then
+        professionDetails.currencyID = CURRENCIES[professionDetails.ID].ID
+    end
+
+    return professionDetails
+end
+
+function ProfessionTrackerMixin:OnEvent(event, ...)
+    if event == "PLAYER_LOGIN" then
+        local profession1, profession2 = GetProfessions()
+
+        self.profession1 = self:GetProfessionDetails(profession1)
+        self.profession2 = self:GetProfessionDetails(profession2)
+    end
+
+    if not self.updatePending then
+        self.updatePending = true
+
+        C_Timer.After(0.5, function()
+            self.updatePending = false
+            self:UpdateProfession1Badge()
+            self:UpdateProfession2Badge()
+        end)
+    end
+end
+
+function ProfessionTrackerMixin:CreateTooltipText(profession)
+    if not self:IsKPProfession(profession) then return "" end
+
     local allObjRemaining = 0
 
-    if not HasMaxKP(profession.skillLineID, profession.configID) then
-        CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
+    if not self:HasMaxKP(profession.skillLineID, profession.configID) then
+        local lines = {}
+        self:CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
             allObjRemaining = allObjRemaining + objRemaining
-
             if not objCompleted then
-                local objectiveText = "  " .. OBJECTIVE_GROUPS[objGroup].name .. ": " .. objRemaining .. "\n"
-                detailsText = detailsText .. objectiveText
+                table.insert(lines, "  "..OBJECTIVE_GROUPS[objGroup].name..": "..objRemaining)
             end
         end)
 
-        if #detailsText <= 0 then
-            detailsText = "  Week done!"
-        end
+        local detailsText = #lines > 0 and table.concat(lines, "\n") or "  Week done!"
+        local kPprogressText = " ["..profession.currentKP.."/"..profession.maxKP.."]"
+        local headerText = "|cFFFFD100"..profession.name.."|r"..kPprogressText
+
+        return "\n"..headerText.."\n"..detailsText
     else
-        detailsText = "  All done!"
+        local kPprogressText = " ["..profession.currentKP.."/"..profession.maxKP.."]"
+        local headerText = "|cFFFFD100"..profession.name.."|r"..kPprogressText
+        return "\n"..headerText.."\n  All done!"
     end
-
-    local kPprogressText = " [" .. profession.currentKP .. "/" .. profession.maxKP .. "]"
-    local headerText = "|cFFFFD100"..profession.name.."|r" .. kPprogressText
-
-    return "\n" .. headerText .. "\n" .. detailsText
 end
 
-ProfessionMicroButton:HookScript("OnEnter", function(self)
-    if GameTooltip:IsOwned(self) then
+local ProfessionTracker = CreateFrame("Frame")
+Mixin(ProfessionTracker, ProfessionTrackerMixin)
+ProfessionTracker:Setup()
 
+
+ProfessionMicroButton:HookScript("OnEnter", function(self)
+    local f = ProfessionTracker
+
+    if GameTooltip:IsOwned(self) then
         if f.profession1 then
-            f.profession1.currentKP, f.profession1.maxKP = GetKPprogress(f.profession1)
-            GameTooltip:AddLine(CreateTooltipText(f.profession1), 1, 1, 1, true)
+            f.profession1.currentKP, f.profession1.maxKP = f:GetKPprogress(f.profession1)
+            GameTooltip:AddLine(f:CreateTooltipText(f.profession1), 1, 1, 1, true)
         end
 
         if f.profession2 then
-            f.profession2.currentKP, f.profession2.maxKP = GetKPprogress(f.profession2)
-            GameTooltip:AddLine(CreateTooltipText(f.profession2), 1, 1, 1, true)
+            f.profession2.currentKP, f.profession2.maxKP = f:GetKPprogress(f.profession2)
+            GameTooltip:AddLine(f:CreateTooltipText(f.profession2), 1, 1, 1, true)
         end
 
         GameTooltip:Show()

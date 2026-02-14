@@ -5,6 +5,7 @@
 ## Notes: Tracks stuff
 ## Author: Banksy
 ## RequiredDeps: Blizzard_WorldMap
+## SavedVariables: BT_SavedVars
 
 ProfessionTracker.lua
 ParagonTracker.lua

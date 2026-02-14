@@ -1,4 +1,4 @@
-local PARAGON_FACTIONS ={
+local PARAGON_FACTIONS = {
     -- The War Within
     [2590] = "Council of Dornogal",
     [2688] = "Flame's Radiance",
@@ -33,7 +33,7 @@ local PARAGON_FACTIONS ={
     [2478] = "The Enlightened",
     [2410] = "The Undying Army",
     [2465] = "The Wild Hunt",
-    [2432] = "Ve,nari",
+    [2432] = "Ve'nari",
 
     -- Battle for Azeroth
     [2164] = "Champions of Azeroth",
@@ -64,12 +64,24 @@ local PARAGON_FACTIONS ={
 }
 
 
-local SCAN_PENDING = false
-local AVAILABLE_PARAGON_CACHES = {}
+ParagonTrackerMixin = {}
 
+function ParagonTrackerMixin:Setup()
+    self.availableParagonCaches = {}
+    self.scanPending = false
+    self.updatePending = false
 
-local function CreateBadge(point)
-    local badge = CreateFrame("Frame", "MyParagonsBadge", AchievementMicroButton)
+    self.badgeParagon = self:CreateBadge("TOP")
+
+    self:RegisterEvent("QUEST_TURNED_IN")
+    self:RegisterEvent("UPDATE_FACTION")
+    self:RegisterEvent("FACTION_STANDING_CHANGED")
+
+    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+end
+
+function ParagonTrackerMixin:CreateBadge(point)
+    local badge = CreateFrame("Frame", nil, AchievementMicroButton)
     badge:SetSize(20, 20)
     badge:SetFrameStrata("MEDIUM")
     badge:SetFrameLevel(AchievementMicroButton:GetFrameLevel() + 10)
@@ -93,49 +105,67 @@ local function CreateBadge(point)
     return badge
 end
 
-local f = CreateFrame("Frame")
-
-f.badgeParagon = CreateBadge("TOP")
-
-local function UpdateParagonBadge()
+function ParagonTrackerMixin:UpdateParagonBadge()
     local count = 0
-    for _, _ in pairs(AVAILABLE_PARAGON_CACHES) do
+    for _ in pairs(self.availableParagonCaches) do
         count = count + 1
     end
 
-    if count and count > 0 then
-        f.badgeParagon.text:SetText(tostring(count))
-        f.badgeParagon:Show()
+    if count > 0 then
+        self.badgeParagon.text:SetText(count)
+        self.badgeParagon:Show()
     else
-        f.badgeParagon:Hide()
+        self.badgeParagon:Hide()
     end
 end
 
-local function GetAvailableParagonCaches()
-    AVAILABLE_PARAGON_CACHES = {}
+function ParagonTrackerMixin:OnEvent(event, ...)
+    if event == "UPDATE_FACTION" or event == "FACTION_STANDING_CHANGED" then
+        if not self.scanPending then
+            self.scanPending = true
 
-    local factionQueue = {}
+            C_Timer.After(0.1, function() self:GetAvailableParagonCaches() end)
+        end
+    elseif event == "QUEST_TURNED_IN" then
+        local questID = ...
+        for factionID, cache in pairs(self.availableParagonCaches) do
+            if questID == cache.questID then
+                self.availableParagonCaches[factionID] = nil
 
-    for factionID, name in pairs(PARAGON_FACTIONS) do
-        table.insert(factionQueue, { id = factionID, name = name })
+                if not self.updatePending then
+                    self.updatePending = true
+                    C_Timer.After(0.5, function()
+                        self.updatePending = false
+                        self:UpdateParagonBadge()
+                    end)
+                end
+                return
+            end
+        end
+    end
+end
+
+function ParagonTrackerMixin:GetAvailableParagonCaches()
+    self.availableParagonCaches = {}
+
+    local factionList = {}
+    for factionID in pairs(PARAGON_FACTIONS) do
+        table.insert(factionList, factionID)
     end
 
     local function ScanParagonBatch(startIndex)
         local batchSize = 6 -- Number of factions per frame
-        local endIndex = math.min(startIndex + batchSize - 1, #factionQueue)
+        local endIndex = math.min(startIndex + batchSize - 1, #factionList)
 
         for i = startIndex, endIndex do
-            local item = factionQueue[i]
-            local factionID = item.id
-            local factionName = item.name
+            local factionID = factionList[i]
+            local factionName = PARAGON_FACTIONS[factionID]
 
             if C_Reputation.IsFactionParagonForCurrentPlayer(factionID) then
                 local _, _, rewardQuestID, hasRewardPending = C_Reputation.GetFactionParagonInfo(factionID)
 
                 if hasRewardPending then
-                    print("    Faction has reward pending: "..factionName)
-
-                    AVAILABLE_PARAGON_CACHES[factionID] = {
+                    self.availableParagonCaches[factionID] = {
                         name = factionName,
                         questID = rewardQuestID
                     }
@@ -143,64 +173,44 @@ local function GetAvailableParagonCaches()
             end
         end
 
-        if endIndex < #factionQueue then
+        if endIndex < #factionList then
             C_Timer.After(0.1, function() ScanParagonBatch(endIndex + 1) end)
         else
-            UpdateParagonBadge()
+            self:UpdateParagonBadge()
 
-            SCAN_PENDING = false
+            self.scanPending = false
         end
     end
 
-    if #factionQueue > 0 then
+    if #factionList > 0 then
         ScanParagonBatch(1)
+    else
+        self.scanPending = false
     end
 end
 
-local function CreateTooltipText()
-    local detailsText = ""
-
-    for _, cache in pairs(AVAILABLE_PARAGON_CACHES) do
-        detailsText = detailsText .. "  " .. cache.name .. "\n"
+function ParagonTrackerMixin:CreateTooltipText()
+    local lines = {}
+    for _, cache in pairs(self.availableParagonCaches) do
+        table.insert(lines, "  "..cache.name)
     end
 
-    if #detailsText <= 0 then
-         detailsText = "  None!"
-    end
-
+    local detailsText = #lines > 0 and table.concat(lines, "\n") or "  None!"
     local headerText = "|cFFFFD100Paragon caches:|r"
-    return  "\n" .. headerText .. "\n" .. detailsText
+
+    return "\n"..headerText.."\n"..detailsText
 end
 
+local ParagonTracker = CreateFrame("Frame")
+Mixin(ParagonTracker, ParagonTrackerMixin)
+ParagonTracker:Setup()
 
-
-f:RegisterEvent("QUEST_TURNED_IN")
-f:RegisterEvent("UPDATE_FACTION")
-f:RegisterEvent("FACTION_STANDING_CHANGED")
-f:SetScript("OnEvent", function(self, event, ...)
-    if event == "UPDATE_FACTION" or "FACTION_STANDING_CHANGED" then
-        if not SCAN_PENDING then
-            SCAN_PENDING = true
-
-            C_Timer.After(0.1, GetAvailableParagonCaches)
-        end
-    elseif event == "QUEST_TURNED_IN" then
-        local questID = ...
-
-        for factionID, cache in pairs(AVAILABLE_PARAGON_CACHES) do
-            if questID == cache.questID then
-                AVAILABLE_PARAGON_CACHES[factionID] = nil
-
-                UpdateParagonBadge()
-                break
-            end
-        end
-    end
-end)
 
 AchievementMicroButton:HookScript("OnEnter", function(self)
     if GameTooltip:IsOwned(self) then
-        GameTooltip:AddLine(CreateTooltipText(), 1, 1, 1, true)
-        GameTooltip:Show()
+        if next(ParagonTracker.availableParagonCaches) then
+            GameTooltip:AddLine(ParagonTracker:CreateTooltipText(), 1, 1, 1, true)
+            GameTooltip:Show()
+        end
     end
 end)
