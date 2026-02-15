@@ -79,7 +79,10 @@ function ProfessionTrackerMixin:CreateBadge(point)
 end
 
 function ProfessionTrackerMixin:UpdateProfession1Badge()
-    if not self.profession1 then return end
+    if not self.profession1 then
+        self.badgeProfession1:Hide()
+        return
+    end
 
     local count = self:GetKPweeklyRemaining(self.profession1)
 
@@ -92,7 +95,10 @@ function ProfessionTrackerMixin:UpdateProfession1Badge()
 end
 
 function ProfessionTrackerMixin:UpdateProfession2Badge()
-    if not self.profession2 then return end
+    if not self.profession2 then
+        self.badgeProfession2:Hide()
+        return
+    end
 
     local count = self:GetKPweeklyRemaining(self.profession2)
 
