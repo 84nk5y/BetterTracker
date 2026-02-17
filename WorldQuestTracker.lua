@@ -14,7 +14,7 @@ local WORLD_QUEST_ZONES = {
 local SCAN_RATE = 5 * 60
 
 
-BT_SavedVars = BT_SavedVars or {}
+BT_SavedVars = BT_SavedVars or { WorldQuestTracker= { MinGoldReward = 500 * 10000 } }
 local SavedVars = nil
 
 
@@ -211,9 +211,7 @@ end
 
 function WorldQuestTrackerMixin:OnEvent(event, ...)
     if event == "VARIABLES_LOADED" then
-        BT_SavedVars["WorldQuestTracker"] = BT_SavedVars["WorldQuestTracker"] or {}
         SavedVars = BT_SavedVars["WorldQuestTracker"]
-        BT_SavedVars["WorldQuestTracker"]["MinGoldReward"] = BT_SavedVars["WorldQuestTracker"]["MinGoldReward"] or (500 * 10000)
     elseif event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(1, function() self:RefreshQuestRewards() end)
     elseif event == "QUEST_DATA_LOAD_RESULT" then
@@ -259,9 +257,10 @@ WorldQuestTabMixin = {}
 function WorldQuestTabMixin:OnLoad()
     self.SelectedTexture:Hide()
     self.Icon:SetAtlas(self.activeAtlas)
-    self.Icon:SetSize(21, 21)
+    self.Icon:SetDesaturated(true)
+    self.Icon:SetVertexColor(0.70, 0.60, 0.20)
+    self.Icon:SetSize(20, 20)
     self.Icon:Show()
-    self.tooltipText = "Gold Quests"
 end
 
 function WorldQuestTabMixin:OnClick()
@@ -322,17 +321,17 @@ function WorldQuestsPanelMixin:RefreshList()
             entry.Icon:SetSize(18, 18)
         end
 
-        entry.Title:SetText(quest.name)
-        if quest.minutesLeft < (24 * 60) then
+        entry.Title:SetText(entry.questName)
+        if entry.minutesLeft < (24 * 60) then
             entry.Title:SetTextColor(RED_FONT_COLOR:GetRGB())
         else
             entry.Title:SetTextColor(NORMAL_FONT_COLOR:GetRGB())
         end
 
-        entry.Reward:SetText(GetMoneyString(quest.amount, true))
+        entry.Reward:SetText(GetMoneyString(entry.amount, true))
 
-        entry:SetScript("OnClick", function()
-            C_QuestLog.AddWorldQuestWatch(quest.ID, Enum.QuestWatchType.Manual)
+        entry:SetScript("OnClick", function(self)
+            C_QuestLog.AddWorldQuestWatch(self.questID, Enum.QuestWatchType.Manual)
         end)
 
         entry:SetScript("OnEnter", function(self)
@@ -356,6 +355,8 @@ function WorldQuestsPanelMixin:RefreshList()
     end
 
     container:Layout()
+    container:Show()
+
     self.ScrollFrame:UpdateScrollChildRect()
 end
 

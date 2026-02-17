@@ -1,13 +1,13 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
-    <Script file="worldQuestTracker.lua"/>
+    <Script file="WorldQuestTracker.lua"/>
 
-    <Button name="WorldMapFrameGoldTab" parent="QuestMapFrame" inherits="QuestLogTabButtonTemplate" id="4" mixin="WorldQuestTabMixin">
+    <Button parentKey="WorldQuestTab" parent="QuestMapFrame" inherits="QuestLogTabButtonTemplate" id="4" mixin="WorldQuestTabMixin">
         <KeyValues>
-            <KeyValue key="displayMode" value="4" type="global"/>
+            <KeyValue key="displayMode" value="4" type="number"/>
             <KeyValue key="activeAtlas" value="coin-gold" type="string"/>
             <KeyValue key="inactiveAtlas" value="coin-gold" type="string"/>
-            <KeyValue key="tooltipText" value="Gold Quests" type="global"/>
+            <KeyValue key="tooltipText" value="Gold Quests" type="string"/>
         </KeyValues>
         <Anchors>
             <Anchor point="TOP" relativeKey="$parent.MapLegendTab" relativePoint="BOTTOM" x="0" y="-3"/>
@@ -20,7 +20,7 @@
 
     <Frame parentKey="WorldQuestsPanel" parentArray="ContentFrames" parent="QuestMapFrame" hidden="true" enableMouse="true" mixin="WorldQuestsPanelMixin">
         <KeyValues>
-            <KeyValue key="displayMode" value="4" type="global"/>
+            <KeyValue key="displayMode" value="4" type="number"/>
         </KeyValues>
         <Anchors>
             <Anchor point="TOPLEFT" relativeKey="$parent.ContentsAnchor" y="-29"/>
@@ -28,7 +28,7 @@
         </Anchors>
         <Frames>
             <Frame parentKey="BorderFrame" inherits="QuestLogBorderFrameTemplate"/>
-            <ScrollFrame parentKey="ScrollFrame" name="WorldQuestsScrollFrame" inherits="ScrollFrameTemplate">
+            <ScrollFrame parentKey="ScrollFrame" inherits="ScrollFrameTemplate">
                 <KeyValues>
                     <KeyValue key="scrollBarX" value="8" type="number"/>
                     <KeyValue key="scrollBarTopY" value="2" type="number"/>
