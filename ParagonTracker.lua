@@ -77,7 +77,7 @@ function ParagonTrackerMixin:Setup()
     self:RegisterEvent("UPDATE_FACTION")
     self:RegisterEvent("FACTION_STANDING_CHANGED")
 
-    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+    self:SetScript("OnEvent", self.OnEvent)
 end
 
 function ParagonTrackerMixin:CreateBadge(point)

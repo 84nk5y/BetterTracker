@@ -34,7 +34,7 @@ function WorldQuestTrackerMixin:Setup()
     self:RegisterEvent("QUEST_TURNED_IN")
     self:RegisterEvent("QUEST_REMOVED")
 
-    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+    self:SetScript("OnEvent", self.OnEvent)
 end
 
 function WorldQuestTrackerMixin:CreateBadge(point)

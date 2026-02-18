@@ -50,7 +50,7 @@ function ProfessionTrackerMixin:Setup()
     self:RegisterEvent("QUEST_TURNED_IN")
     self:RegisterEvent("BAG_UPDATE")
 
-    self:SetScript("OnEvent", function(self, event, ...) self:OnEvent(event, ...) end)
+    self:SetScript("OnEvent", self.OnEvent)
 end
 
 function ProfessionTrackerMixin:CreateBadge(point)
