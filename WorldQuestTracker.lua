@@ -291,7 +291,7 @@ function WorldQuestsPanelMixin:RefreshList()
         return a.zone < b.zone
     end)
 
-    local container = self.ScrollFrame.ScrollChild
+    local container = self.ScrollFrame.Content
 
     if not self.pool then
         self.pool = CreateFramePool("Button", container, "WorldQuestEntryTemplate")

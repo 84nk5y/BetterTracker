@@ -49,7 +49,7 @@
                     </Layer>
                 </Layers>
                 <ScrollChild>
-                    <Frame parentKey="ScrollChild" inherits="VerticalLayoutFrame">
+                    <Frame parentKey="Content" inherits="VerticalLayoutFrame">
                         <KeyValues>
                             <KeyValue key="leftPadding" value="4" type="number"/>
                             <KeyValue key="rightPadding" value="0" type="number"/>
