@@ -322,8 +322,10 @@ function WorldQuestsPanelMixin:RefreshList()
         end
 
         entry.Title:SetText(entry.questName)
-        if entry.minutesLeft < (24 * 60) then
+        if entry.minutesLeft < (8 * 60) then
             entry.Title:SetTextColor(RED_FONT_COLOR:GetRGB())
+        elseif entry.minutesLeft < (24 * 60) then
+            entry.Title:SetTextColor(0.8, 0.4, 0)
         else
             entry.Title:SetTextColor(NORMAL_FONT_COLOR:GetRGB())
         end
