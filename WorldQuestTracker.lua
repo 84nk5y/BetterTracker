@@ -298,7 +298,6 @@ function WorldQuestsPanelMixin:RefreshList()
     end
     self.pool:ReleaseAll()
 
-    -- Store reference to panel for use in button callbacks
     local panel = self
 
     for i, quest in ipairs(sortedQuests) do
@@ -322,7 +321,9 @@ function WorldQuestsPanelMixin:RefreshList()
         end
 
         entry.Title:SetText(entry.questName)
-        if entry.minutesLeft < (8 * 60) then
+        if entry.minutesLeft <= 0 then
+            entry.Title:SetTextColor(DISABLED_FONT_COLOR:GetRGB())
+        elseif entry.minutesLeft < (8 * 60) then
             entry.Title:SetTextColor(RED_FONT_COLOR:GetRGB())
         elseif entry.minutesLeft < (24 * 60) then
             entry.Title:SetTextColor(0.8, 0.4, 0)
