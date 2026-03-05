@@ -1,39 +1,40 @@
-local OBJECTIVES = {
-    [171] = {treasures = {83253, 83255}, treatise = {83725}, weeklyQuest = {84133}, craftingOrders = {}}, --alchemy
-    [164] = {treasures = {83256, 83257}, treatise = {83726}, weeklyQuest = {84127}, craftingOrders = {}}, --blacksmithing
-    [202] = {treasures = {83260, 83261}, treatise = {83728}, weeklyQuest = {84128}, craftingOrders = {}}, --engineering
-    [773] = {treasures = {83262, 83264}, treatise = {83730}, weeklyQuest = {84129}, craftingOrders = {}}, --inscription
-    [755] = {treasures = {83265, 83266}, treatise = {83731}, weeklyQuest = {84130}, craftingOrders = {}}, --jewelcrafting
-    [165] = {treasures = {83267, 83268}, treatise = {83732}, weeklyQuest = {84131}, craftingOrders = {}}, --leatherworking
-    [197] = {treasures = {83269, 83270}, treatise = {83735}, weeklyQuest = {84132}, craftingOrders = {}}, --tailoring
-    [333] = {treasures = {83258, 83259}, treatise = {83727}, weeklyQuest = {84084, 84085, 84086}, disenchanting = {84290, 84291, 84292, 84293, 84294, 84295}}, --enchanting
-    [182] = {treasures = {}, treatise = {83729}, weeklyQuest = {82965, 82958, 82916, 82962, 82970}, gathering = {81416, 81417, 81418, 81419, 81420, 81421}}, --herbalism
-    [186] = {treasures = {}, treatise = {83733}, weeklyQuest = {83105, 83106, 83104, 83102, 83103}, gathering = {83050, 83051, 83052, 83053, 83054, 83049}}, --mining
-    [393] = {treasures = {}, treatise = {83734}, weeklyQuest = {83098, 82993, 82992, 83100, 83097}, gathering = {81459, 81460, 81461, 81462, 81463, 81464}} --skinning
+local OBJECTIVE_GROUPS = {
+    gathering = { isUnique = false, free = true, name = "Gathering" },
+    treasures = { isUnique = false, free = true, name = "Treasures/Dirt" },
+    weeklyQuest = { isUnique = true, free = false, name = "Weekly Quest" },
+    disenchanting = { isUnique = false, free = false, name = "Disenchanting" }
 }
 
-local OBJECTIVE_GROUPS = {
-    gathering = {isUnique = false, free = true, name = "Gathering"},
-    treasures = {isUnique = false, free = true, name = "Treasures/Dirt"},
-    treatise = {isUnique = false, free = false, name = "Treatise"},
-    weeklyQuest = {isUnique = true, free = false, name = "Weekly Quest"},
-    craftingOrders = {isUnique = false, free = false, name = "Crafting Orders"},
-    disenchanting = {isUnique = false, free = false, name = "Disenchanting"}
+local OBJECTIVES = {
+-- [ProfessionID] = { treasures = {QuestID}, weeklyQuest = {QuestID} }
+    [171] = { treasures = {93528, 93529}, weeklyQuest = {93690} }, -- Alchemy
+    [164] = { treasures = {93530, 93531}, weeklyQuest = {93691} }, -- Blacksmithing
+    [202] = { treasures = {93534, 93535}, weeklyQuest = {93692} }, -- Engineering
+    [773] = { treasures = {93537, 93536}, weeklyQuest = {93693} }, -- Inscription
+    [755] = { treasures = {93538, 93539}, weeklyQuest = {93694} }, -- Jewelcrafting
+    [165] = { treasures = {93541, 93540}, weeklyQuest = {93695} }, -- Leatherworking
+    [197] = { treasures = {93543, 93542}, weeklyQuest = {93696} }, -- Tailoring
+    [333] = { treasures = {93532, 93533}, weeklyQuest = {93699, 93698, 93697}, disenchanting = {95048, 95049, 95050, 95051, 95052, 95053} }, -- Enchanting
+    [182] = { gathering = {81425, 81426, 81427, 81428, 81429, 81430}, weeklyQuest = {85393700, 93701, 93702, 93703, 93704} }, -- Herbalism
+    [186] = { gathering = {88673, 88674, 88675, 88676, 88677, 88678}, weeklyQuest = {93705, 93706, 93707, 93708, 93709} }, -- Mining
+    [393] = { gathering = {88534, 88549, 88536, 88537, 88530, 88529}, weeklyQuest = {93710, 93711, 93712, 93713, 93714} }  -- Skinning
 }
 
 local CURRENCIES = {
-    [171] = {ID = 2785}, --alchemy
-    [164] = {ID = 2786}, --blacksmithing
-    [202] = {ID = 2788}, --engineering
-    [773] = {ID = 2790}, --inscription
-    [755] = {ID = 2791}, --jewelcrafting
-    [165] = {ID = 2792}, --leatherworking
-    [197] = {ID = 2795}, --tailoring
-    [333] = {ID = 2787}, --enchanting
-    [182] = {ID = 2789}, --herbalism
-    [186] = {ID = 2793}, --mining
-    [393] = {ID = 2794}  --skinning
+    [171] = {ID = 3150}, -- Alchemy
+    [164] = {ID = 3151}, -- Blacksmithing
+    [202] = {ID = 3259}, -- Engineering
+    [773] = {ID = 3155}, -- Inscription
+    [755] = {ID = 3156}, -- Jewelcrafting
+    [165] = {ID = 3157}, -- Leatherworking
+    [197] = {ID = 3160}, -- Tailoring
+    [333] = {ID = 3152}, -- Enchanting
+    [182] = {ID = 3154}, -- Herbalism
+    [186] = {ID = 3158}, -- Mining
+    [393] = {ID = 3159}  -- Skinning
 }
+
+local EXPANSION_PROFESSION_PREFIX = "Midnight"
 
 
 ProfessionTrackerMixin = {}
@@ -84,7 +85,7 @@ function ProfessionTrackerMixin:UpdateProfession1Badge()
         return
     end
 
-    local count = self:GetKPweeklyRemaining(self.profession1)
+    local count = self:GetWeeklyRemaining(self.profession1)
 
     if count and count > 0 then
         self.badgeProfession1.text:SetText(count)
@@ -100,7 +101,7 @@ function ProfessionTrackerMixin:UpdateProfession2Badge()
         return
     end
 
-    local count = self:GetKPweeklyRemaining(self.profession2)
+    local count = self:GetWeeklyRemaining(self.profession2)
 
     if count and count > 0 then
         self.badgeProfession2.text:SetText(count)
@@ -112,7 +113,7 @@ end
 
 function ProfessionTrackerMixin:GetSubSkillLineID(profession)
     local profTradeSkillLines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
-    local subProfessionName = 'Khaz Algar ' .. profession
+    local subProfessionName = EXPANSION_PROFESSION_PREFIX .. ' ' .. profession
     local profInfo
 
     for _, v in ipairs(profTradeSkillLines) do
@@ -227,13 +228,15 @@ function ProfessionTrackerMixin:CheckProfessionObjective(quests, objectiveGroup)
 end
 
 function ProfessionTrackerMixin:CheckProfessionObjectives(profession, callback)
+    if not OBJECTIVES[profession.ID] then return end
+
     for objGroup in pairs(OBJECTIVES[profession.ID]) do
         local objCompleted, objRemaining = self:CheckProfessionObjective(OBJECTIVES[profession.ID][objGroup], objGroup)
         callback(objRemaining, objCompleted, objGroup)
     end
 end
 
-function ProfessionTrackerMixin:GetKPweeklyRemaining(profession)
+function ProfessionTrackerMixin:GetWeeklyRemaining(profession)
     if not self:IsKPProfession(profession) or self:HasMaxKP(profession.skillLineID, profession.configID) then return 0 end
 
     local allObjRemaining = 0
