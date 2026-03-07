@@ -285,8 +285,16 @@ function WorldQuestsPanelMixin:RefreshList()
         table.insert(sortedQuests, quest)
     end
     table.sort(sortedQuests, function(a, b)
-        if a.minutesLeft ~= b.minutesLeft then
-            return a.minutesLeft < b.minutesLeft
+        local function sortKey(minutes)
+            if minutes > 60 then
+                return math.floor(minutes / 60) * 60
+            end
+            return minutes
+        end
+        local aKey = sortKey(a.minutesLeft)
+        local bKey = sortKey(b.minutesLeft)
+        if aKey ~= bKey then
+            return aKey < bKey
         end
         return a.zone < b.zone
     end)
