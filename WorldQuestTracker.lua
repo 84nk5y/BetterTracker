@@ -1,14 +1,11 @@
 -- /dump C_Map.GetBestMapForUnit("player")
 local WORLD_QUEST_ZONES = {
-    [2214] = "The Ringing Deeps",
-    [2215] = "Hallowfall",
-    [2248] = "Isle of Dorn",
-    [2339] = "Dornogal",
-    [2255] = "Azj-Kahet",
-    [2346] = "Undermine",
-    [2369] = "Siren Isle",
-    [2371] = "K'aresh",
-    [2472] = "Tazavesh"
+    [2424] = "Isle of Quel'Danas",
+    [2393] = "Silvermoon City",
+    [2395] = "Eversong Woods",
+    [2437] = "Zul'Aman",
+    [2576] = "Harandar",
+    [2405] = "Voidstorm"
 }
 
 local SCAN_RATE = 5 * 60
@@ -80,23 +77,49 @@ end
 function WorldQuestTrackerMixin:GetTotalGoldFromQuest(questID)
     local totalMoney = 0
 
-    C_TaskQuest.RequestPreloadRewardData(questID)
-
     local moneyReward = GetQuestLogRewardMoney(questID) or 0
     if moneyReward > 0 then
         totalMoney = totalMoney + moneyReward
     end
 
-    local currencies = C_QuestLog.GetQuestRewardCurrencies(questID)
-    if currencies then
-        for _, currency in ipairs(currencies) do
-            if currency.currencyID == 0 or currency.name == "Gold" then
-                totalMoney = totalMoney + (currency.totalRewardAmount or 0)
-            end
+    local currencies = C_QuestLog.GetQuestRewardCurrencies(questID) or {}
+    for _, currency in ipairs(currencies) do
+        if currency.currencyID == 0 or currency.name == "Gold" then
+            totalMoney = totalMoney + (currency.totalRewardAmount or 0)
         end
     end
 
     return math.floor(totalMoney / 10000) * 10000
+end
+
+function WorldQuestTrackerMixin:HasReputationReward(questID)
+    -- 1. Check for the First-Time Completion Bonus (Warband Rep)
+    -- This is the API you found in the Blizzard source. It checks if the
+    -- player gets that large chunk of 'blue' account-wide reputation.
+    if C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(questID) then
+        return true
+    end
+
+    -- 2. Check Currency Rewards for Faction Gains
+    -- Many Midnight factions (like those in Zul'Aman) reward rep via currencies.
+    -- We use the Blizzard internal logic you found to see if any currency
+    -- awarded is actually a "Faction Currency".
+    local currencies = C_QuestLog.GetQuestRewardCurrencies(questID) or {}
+    for _, currencyInfo in ipairs(currencies) do
+        -- Blizzard's internal check: Does this currency ID grant a faction?
+        if C_CurrencyInfo.GetFactionGrantedByCurrency(currencyInfo.currencyID) then
+            return true
+        end
+    end
+
+    -- 3. Check Standard Rewards (Fallback)
+    -- This handles the basic +75 or +125 rep lines.
+    local numFactions = GetNumQuestLogRewardFactions(questID) or 0
+    if numFactions > 0 then
+        return true
+    end
+
+    return false
 end
 
 function WorldQuestTrackerMixin:ProcessQuest(questID)
@@ -121,9 +144,10 @@ function WorldQuestTrackerMixin:ProcessQuest(questID)
         local mapID = C_TaskQuest.GetQuestZoneID(questID)
         local mapName = mapID and C_Map.GetMapInfo(mapID) and C_Map.GetMapInfo(mapID).name or "Unknown Zone"
         local goldAmount = self:GetTotalGoldFromQuest(questID) or 0
+        local repReward = self:HasReputationReward(questID) or false
         local minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0
 
-        if goldAmount > SavedVars.MinGoldReward then
+        if goldAmount > SavedVars.MinGoldReward or repReward then
             if not self.foundWorldQuests[questID] then
                 self.foundWorldQuestsCount = self.foundWorldQuestsCount + 1
             end
@@ -132,6 +156,7 @@ function WorldQuestTrackerMixin:ProcessQuest(questID)
                 ID = questID,
                 name = questName,
                 amount = goldAmount,
+                repReward = repReward,
                 tagInfo = questTagInfo,
                 minutesLeft = minutesLeft,
                 zone = mapName
@@ -317,6 +342,7 @@ function WorldQuestsPanelMixin:RefreshList()
         entry.minutesLeft = quest.minutesLeft
         entry.zone = quest.zone
         entry.amount = quest.amount
+        entry.repReward = quest.repReward
 
         local atlas, width, height = QuestUtil.GetWorldQuestAtlasInfo(quest.ID, quest.tagInfo, false)
         if atlas then
@@ -339,7 +365,13 @@ function WorldQuestsPanelMixin:RefreshList()
             entry.Title:SetTextColor(NORMAL_FONT_COLOR:GetRGB())
         end
 
-        entry.Reward:SetText(GetMoneyString(entry.amount, true))
+        if entry.amount > 0 then
+            entry.Reward:SetText(GetMoneyString(entry.amount, true))
+        elseif entry.repReward then
+            entry.Reward:SetText("Reputation")
+        else
+            entry.Reward:SetText("n/a")
+        end
 
         entry:SetScript("OnClick", function(self)
             C_QuestLog.AddWorldQuestWatch(self.questID, Enum.QuestWatchType.Manual)
@@ -351,6 +383,9 @@ function WorldQuestsPanelMixin:RefreshList()
             if GameTooltip:IsOwned(self) then
                 GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
                 GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
+                if self.amount > 0 then
+                    GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
+                end
                 GameTooltip:Show()
             end
         end)
@@ -380,10 +415,13 @@ function WorldQuestsPanelMixin:FormatQuestTime(totalMinutes)
     local minutes = remainingMinutes % 60
 
     if days > 0 then
+        -- More than 1 day: show days and hours only
         return string.format("|cFFFFD100%dd %dh", days, hours)
     elseif hours > 0 then
-        return string.format("|cffff0000%dh %dm", hours, minutes)
+        -- More than 1 hour: show hours only, no minutes
+        return string.format("|cFFFFD100%dh", hours)
     else
+        -- Under 1 hour: show minutes only
         return string.format("|cffff0000%dm", minutes)
     end
 end
