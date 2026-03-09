@@ -1,4 +1,4 @@
-local addonName, addonTable = ...
+local _, _A = ...
 
 
 ProfessionTrackerMixin = {}
@@ -77,7 +77,7 @@ end
 
 function ProfessionTrackerMixin:GetSubSkillLineID(profession)
     local profTradeSkillLines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
-    local subProfessionName = addonTable.ExpansionPrefix .. ' ' .. profession
+    local subProfessionName = _A.ExpansionPrefix..' '..profession
     local profInfo
 
     for _, v in ipairs(profTradeSkillLines) do
@@ -174,7 +174,7 @@ function ProfessionTrackerMixin:CheckProfessionObjective(quests, objectiveGroup)
     local complQuestCount = 0
     local objectiveComplete = false
 
-    if addonTable.ObjectiveGroups[objectiveGroup].isUnique and maxQuestCount > 1 then
+    if _A.ObjectiveGroups[objectiveGroup].isUnique and maxQuestCount > 1 then
         maxQuestCount = 1
     end
 
@@ -192,10 +192,10 @@ function ProfessionTrackerMixin:CheckProfessionObjective(quests, objectiveGroup)
 end
 
 function ProfessionTrackerMixin:CheckProfessionObjectives(profession, callback)
-    if not addonTable.Objectives[profession.ID] then return end
+    if not _A.Objectives[profession.ID] then return end
 
-    for objGroup in pairs(addonTable.Objectives[profession.ID]) do
-        local objCompleted, objRemaining = self:CheckProfessionObjective(addonTable.Objectives[profession.ID][objGroup], objGroup)
+    for objGroup in pairs(_A.Objectives[profession.ID]) do
+        local objCompleted, objRemaining = self:CheckProfessionObjective(_A.Objectives[profession.ID][objGroup], objGroup)
         callback(objRemaining, objCompleted, objGroup)
     end
 end
@@ -205,7 +205,7 @@ function ProfessionTrackerMixin:GetWeeklyRemaining(profession)
 
     local allObjRemaining = 0
     self:CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
-        if addonTable.ObjectiveGroups[objGroup].free then
+        if _A.ObjectiveGroups[objGroup].free then
             allObjRemaining = allObjRemaining + objRemaining
         end
     end)
@@ -224,8 +224,8 @@ function ProfessionTrackerMixin:GetProfessionDetails(professionIndex)
     professionDetails.skillLineID = self:GetSubSkillLineID(professionDetails.name)
     professionDetails.configID = C_ProfSpecs.GetConfigIDForSkillLine(professionDetails.skillLineID)
 
-    if addonTable.Currencies[professionDetails.ID] then
-        professionDetails.currencyID = addonTable.Currencies[professionDetails.ID].ID
+    if _A.Currencies[professionDetails.ID] then
+        professionDetails.currencyID = _A.Currencies[professionDetails.ID].ID
     end
 
     return professionDetails
@@ -241,7 +241,7 @@ function ProfessionTrackerMixin:CreateTooltipText(profession)
         self:CheckProfessionObjectives(profession, function(objRemaining, objCompleted, objGroup)
             allObjRemaining = allObjRemaining + objRemaining
             if not objCompleted then
-                table.insert(lines, "  "..addonTable.ObjectiveGroups[objGroup].name..": "..objRemaining)
+                table.insert(lines, "  ".._A.ObjectiveGroups[objGroup].name..": "..objRemaining)
             end
         end)
 
