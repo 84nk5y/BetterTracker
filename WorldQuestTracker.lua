@@ -4,8 +4,16 @@ local addonName, addonTable = ...
 local SCAN_RATE = 5 * 60
 
 
-BT_SavedVars = BT_SavedVars or { WorldQuestTracker= { MinGoldReward = 500 * 10000 } }
+BT_SavedVars = BT_SavedVars or { WorldQuestTracker = { MinGoldReward = 500 * 10000 } }
 local SavedVars = nil
+
+
+local function QuestSortKey(minutes)
+    if minutes > 60 then
+        return math.floor(minutes / 60) * 60
+    end
+    return minutes
+end
 
 
 local WorldQuestTrackerMixin = {}
@@ -67,7 +75,7 @@ function WorldQuestTrackerMixin:UpdateUI()
 end
 
 function WorldQuestTrackerMixin:GetRewardsForQuest(questID)
-    local rewards = { gold = 0, reputation = false}
+    local rewards = { gold = 0, reputation = false }
 
     local goldReward = GetQuestLogRewardMoney(questID) or 0
     if goldReward > 0 then
@@ -113,37 +121,33 @@ function WorldQuestTrackerMixin:ProcessQuest(questID)
 
     if not addonTable.WorldQuestsZones[mapID] then return end
 
-    if C_QuestLog.IsComplete(questID) or not C_TaskQuest.IsActive(questID)  then
+    if C_QuestLog.IsComplete(questID) or not C_TaskQuest.IsActive(questID) then
         addonTable.FoundWorldQuests:RemoveQuest(questID)
         return
     end
 
-    local isWorldQuest = C_QuestLog.IsWorldQuest(questID)
+    if not C_QuestLog.IsWorldQuest(questID) then return end
 
-    if isWorldQuest then
-        local questName = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest"
-        local questTagInfo = C_QuestLog.GetQuestTagInfo(questID)
-        local mapName = mapID and C_Map.GetMapInfo(mapID) and C_Map.GetMapInfo(mapID).name or "Unknown Zone"
-        local rewards = self:GetRewardsForQuest(questID)
-        local minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0
+    local mapInfo = C_Map.GetMapInfo(mapID)
+    local mapName = mapInfo and mapInfo.name or "Unknown Zone"
+    local rewards = self:GetRewardsForQuest(questID)
 
-        if rewards.gold > SavedVars.MinGoldReward or rewards.reputation then
-            local quest = {
-                ID = questID,
-                name = questName,
-                amount = rewards.gold,
-                repReward = rewards.reputation,
-                tagInfo = questTagInfo,
-                minutesLeft = minutesLeft,
-                zone = mapName
-            }
-            addonTable.FoundWorldQuests:AddQuest(questID, quest)
+    if rewards.gold > SavedVars.MinGoldReward or rewards.reputation then
+        local quest = {
+            ID = questID,
+            name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
+            amount = rewards.gold,
+            repReward = rewards.reputation,
+            tagInfo = C_QuestLog.GetQuestTagInfo(questID),
+            minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0,
+            zone = mapName,
+        }
+        addonTable.FoundWorldQuests:AddQuest(questID, quest)
+
+        if not self.updatingUI then
+            self.updatingUI = true
+            C_Timer.After(1, function() self:UpdateUI() end)
         end
-    end
-
-    if not self.updatingUI then
-        self.updatingUI = true
-        C_Timer.After(1, function() self:UpdateUI() end)
     end
 end
 
@@ -165,9 +169,8 @@ function WorldQuestTrackerMixin:RefreshQuestRewards()
                 local questID = qInfo.questId or qInfo.questID
 
                 if questID then
-                    local isWorldQuest = C_QuestLog.IsWorldQuest(questID)
+                    if C_QuestLog.IsWorldQuest(questID) and not self.worldQuestsToScan[questID] then
 
-                    if isWorldQuest and not self.worldQuestsToScan[questID] then
                         -- try to force server to provide quest data
                         C_TaskQuest.GetQuestZoneID(questID)
                         C_TaskQuest.RequestPreloadRewardData(questID)
@@ -242,7 +245,7 @@ WorldQuestTracker:Setup()
 QuestLogMicroButton:HookScript("OnEnter", function(self)
     if GameTooltip:IsOwned(self) then
         local totalGold = 0
-        for qID, data in pairs(addonTable.FoundWorldQuests:GetQuests()) do
+        for _, data in pairs(addonTable.FoundWorldQuests:GetQuests()) do
             totalGold = totalGold + data.amount
         end
         GameTooltip:AddLine("\nTotal Gold available: "..GetMoneyString(totalGold, true), 1, 1, 1, true)
@@ -282,14 +285,8 @@ function WorldQuestsPanelMixin:RefreshList()
         table.insert(sortedQuests, quest)
     end
     table.sort(sortedQuests, function(a, b)
-        local function sortKey(minutes)
-            if minutes > 60 then
-                return math.floor(minutes / 60) * 60
-            end
-            return minutes
-        end
-        local aKey = sortKey(a.minutesLeft)
-        local bKey = sortKey(b.minutesLeft)
+        local aKey = QuestSortKey(a.minutesLeft)
+        local bKey = QuestSortKey(b.minutesLeft)
         if aKey ~= bKey then
             return aKey < bKey
         end
@@ -351,15 +348,12 @@ function WorldQuestsPanelMixin:RefreshList()
 
         entry:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-
-            if GameTooltip:IsOwned(self) then
-                GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
-                GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
-                if self.amount > 0 then
-                    GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
-                end
-                GameTooltip:Show()
+            GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
+            GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
+            if self.amount > 0 then
+                GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
             end
+            GameTooltip:Show()
         end)
 
         entry:SetScript("OnLeave", function(self)
@@ -387,17 +381,13 @@ function WorldQuestsPanelMixin:FormatQuestTime(totalMinutes)
     local minutes = remainingMinutes % 60
 
     if days > 0 then
-        -- More than 1 day: show days and hours only
         return string.format("|cFFFFD100%dd %dh", days, hours)
     elseif hours > 0 then
-        -- More than 1 hour: show hours only, no minutes
         return string.format("|cFFFFD100%dh", hours)
     else
-        -- Under 1 hour: show minutes only
         return string.format("|cffff0000%dm", minutes)
     end
 end
-
 
 
 SLASH_WorldQuestTracker1 = "/bwq"

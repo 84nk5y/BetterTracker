@@ -1,14 +1,14 @@
 local addonName, addonTable = ...
 
--- /dump C_Map.GetBestMapForUnit("player")
+-- Use /dump C_Map.GetBestMapForUnit("player") in-game to find map IDs
 addonTable.WorldQuestsZones = {
-    [2424] = "Silvermoon -Isle of Quel'Danas",
+    [2424] = "Silvermoon - Isle of Quel'Danas",
     [2393] = "Silvermoon City",
     [2395] = "Eversong Woods",
     [2437] = "Zul'Aman",
     [2576] = "Harandar",
     [2405] = "Voidstorm",
-    [2444] = "Voidstorm - Bloodplains"
+    [2444] = "Voidstorm - Bloodplains",
 }
 
 
