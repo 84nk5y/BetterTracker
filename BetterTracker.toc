@@ -7,6 +7,8 @@
 ## RequiredDeps: Blizzard_WorldMap
 ## SavedVariables: BT_SavedVars
 
+ProfessionData.lua
 ProfessionTracker.lua
 ParagonTracker.lua
+WorldQuestData.lua
 WorldQuestTracker.xml
