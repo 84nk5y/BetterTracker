@@ -1,4 +1,4 @@
-local addonName, addonTable = ...
+local _, _A = ...
 
 
 local SCAN_RATE = 5 * 60
@@ -59,7 +59,7 @@ function WorldQuestTrackerMixin:CreateBadge(point)
 end
 
 function WorldQuestTrackerMixin:UpdateUI()
-    local count = addonTable.FoundWorldQuests:GetCount()
+    local count = _A.FoundWorldQuests:GetCount()
     if count > 0 then
         self.worldQuestBadge.text:SetText(count)
         self.worldQuestBadge:Show()
@@ -74,76 +74,10 @@ function WorldQuestTrackerMixin:UpdateUI()
     self.updatingUI = false
 end
 
-function WorldQuestTrackerMixin:GetRewardsForQuest(questID)
-    local rewards = { gold = 0, reputation = false }
-
-    local goldReward = GetQuestLogRewardMoney(questID) or 0
-    if goldReward > 0 then
-        rewards.gold = rewards.gold + goldReward
-    end
-
-    local currencies = C_QuestLog.GetQuestRewardCurrencies(questID) or {}
-    for _, currency in ipairs(currencies) do
-        if currency.currencyID == 0 or currency.name == "Gold" then
-            rewards.gold = rewards.gold + (currency.totalRewardAmount or 0)
-        end
-
-        -- Blizzard's internal check: Does this currency ID grant a faction?
-        if C_CurrencyInfo.GetFactionGrantedByCurrency(currency.currencyID) then
-            rewards.reputation = true
-        end
-    end
-
-    rewards.gold = math.floor(rewards.gold / 10000) * 10000
-
-    -- 1. Check for the First-Time Completion Bonus (Warband Rep)
-    -- This is the API you found in the Blizzard source. It checks if the
-    -- player gets that large chunk of 'blue' account-wide reputation.
-    if C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(questID) then
-        rewards.reputation = true
-    end
-
-    -- 3. Check Standard Rewards (Fallback)
-    -- This handles the basic +75 or +125 rep lines.
-    local numFactions = GetNumQuestLogRewardFactions(questID) or 0
-    if numFactions > 0 then
-        print("GetNumQuestLogRewardFactions > 0")
-        rewards.reputation = true
-    end
-
-    return rewards
-end
-
 function WorldQuestTrackerMixin:ProcessQuest(questID)
     if not questID then return end
 
-    local mapID = C_TaskQuest.GetQuestZoneID(questID)
-
-    if not addonTable.WorldQuestsZones[mapID] then return end
-
-    if C_QuestLog.IsComplete(questID) or not C_TaskQuest.IsActive(questID) then
-        addonTable.FoundWorldQuests:RemoveQuest(questID)
-        return
-    end
-
-    if not C_QuestLog.IsWorldQuest(questID) then return end
-
-    local mapInfo = C_Map.GetMapInfo(mapID)
-    local mapName = mapInfo and mapInfo.name or "Unknown Zone"
-    local rewards = self:GetRewardsForQuest(questID)
-
-    if rewards.gold > SavedVars.MinGoldReward or rewards.reputation then
-        local quest = {
-            ID = questID,
-            name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
-            amount = rewards.gold,
-            repReward = rewards.reputation,
-            tagInfo = C_QuestLog.GetQuestTagInfo(questID),
-            minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0,
-            zone = mapName,
-        }
-        addonTable.FoundWorldQuests:AddQuest(questID, quest)
-
+    if _A.ProcessWorldQuest(questID, SavedVars) then
         if not self.updatingUI then
             self.updatingUI = true
             C_Timer.After(1, function() self:UpdateUI() end)
@@ -153,7 +87,7 @@ end
 
 function WorldQuestTrackerMixin:RefreshQuestRewards()
     local mapList = {}
-    for mapID in pairs(addonTable.WorldQuestsZones) do
+    for mapID in pairs(_A.WorldQuestsZones) do
         table.insert(mapList, mapID)
     end
 
@@ -196,7 +130,7 @@ end
 
 function WorldQuestTrackerMixin:RefreshQuests()
     for questID in pairs(self.worldQuestsToScan) do
-        if not addonTable.FoundWorldQuests:GetQuest(questID) then
+        if not _A.FoundWorldQuests:GetQuest(questID) then
             self:ProcessQuest(questID)
         end
     end
@@ -208,7 +142,7 @@ end
 function WorldQuestTrackerMixin:ResetQuests()
     self.worldQuestsToScan = {}
 
-    addonTable.FoundWorldQuests:Clear()
+    _A.FoundWorldQuests:Clear()
 
     self:RefreshQuestRewards()
 end
@@ -226,8 +160,8 @@ function WorldQuestTrackerMixin:OnEvent(event, ...)
     elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
         local questID = ...
 
-        if addonTable.FoundWorldQuests:GetQuest(questID) then
-            addonTable.FoundWorldQuests:RemoveQuest(questID)
+        if _A.FoundWorldQuests:GetQuest(questID) then
+            _A.FoundWorldQuests:RemoveQuest(questID)
 
             if not self.updatingUI then
                 self.updatingUI = true
@@ -245,7 +179,7 @@ WorldQuestTracker:Setup()
 QuestLogMicroButton:HookScript("OnEnter", function(self)
     if GameTooltip:IsOwned(self) then
         local totalGold = 0
-        for _, data in pairs(addonTable.FoundWorldQuests:GetQuests()) do
+        for _, data in pairs(_A.FoundWorldQuests:GetQuests()) do
             totalGold = totalGold + data.amount
         end
         GameTooltip:AddLine("\nTotal Gold available: "..GetMoneyString(totalGold, true), 1, 1, 1, true)
@@ -280,7 +214,7 @@ WorldQuestsPanelMixin = {}
 
 function WorldQuestsPanelMixin:RefreshList()
     local sortedQuests = {}
-    for _, quest in pairs(addonTable.FoundWorldQuests:GetQuests()) do
+    for _, quest in pairs(_A.FoundWorldQuests:GetQuests()) do
         quest.minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(quest.ID) or quest.minutesLeft or 0
         table.insert(sortedQuests, quest)
     end
