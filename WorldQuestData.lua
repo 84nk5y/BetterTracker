@@ -67,12 +67,12 @@ function _A.ProcessWorldQuest(questID, savedVars)
     local mapInfo = C_Map.GetMapInfo(mapID)
     local rewards = _A:GetRewardsForQuest(questID)
 
-    if rewards.gold > savedVars.MinGoldReward or rewards.reputation then
+    if rewards.gold > savedVars.MinGoldReward or rewards.faction then
         local quest = {
             ID = questID,
             name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
             amount = rewards.gold,
-            repReward = rewards.reputation,
+            faction = rewards.faction,
             tagInfo = C_QuestLog.GetQuestTagInfo(questID),
             minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(questID) or 0,
             zone = mapInfo and mapInfo.name or "Unknown Zone",
@@ -88,39 +88,47 @@ end
 function _A:GetRewardsForQuest(questID)
     local rewards = { gold = 0, reputation = false }
 
-    local goldReward = GetQuestLogRewardMoney(questID) or 0
-    if goldReward > 0 then
-        rewards.gold = rewards.gold + goldReward
-    end
+    rewards.gold = GetQuestLogRewardMoney(questID) or 0
 
+    local factionID = nil
     local currencies = C_QuestLog.GetQuestRewardCurrencies(questID) or {}
     for _, currency in ipairs(currencies) do
         if currency.currencyID == 0 or currency.name == "Gold" then
             rewards.gold = rewards.gold + (currency.totalRewardAmount or 0)
         end
 
-        -- Blizzard's internal check: Does this currency ID grant a faction?
-        if C_CurrencyInfo.GetFactionGrantedByCurrency(currency.currencyID) then
-            rewards.reputation = true
-        end
+        factionID = C_CurrencyInfo.GetFactionGrantedByCurrency(currency.currencyID)
     end
 
     rewards.gold = math.floor(rewards.gold / 10000) * 10000
 
-    -- 1. Check for the First-Time Completion Bonus (Warband Rep)
-    -- This is the API you found in the Blizzard source. It checks if the
-    -- player gets that large chunk of 'blue' account-wide reputation.
     if C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(questID) then
-        rewards.reputation = true
+        factionID = select(2, C_TaskQuest.GetQuestInfoByQuestID(questID))
     end
 
-    -- 3. Check Standard Rewards (Fallback)
-    -- This handles the basic +75 or +125 rep lines.
-    local numFactions = GetNumQuestLogRewardFactions(questID) or 0
-    if numFactions > 0 then
-        print("GetNumQuestLogRewardFactions > 0")
-        rewards.reputation = true
+    if factionID and not _A:IsFactionMaxed(factionID) then
+        rewards.faction = _A.ParagonFactions[factionID]
     end
 
     return rewards
+end
+
+function _A:IsFactionMaxed(factionID)
+    -- 1. Check Major Factions
+    if C_MajorFactions.HasMaximumRenown(factionID) then
+        return true
+    end
+
+    -- -- 2. Check Standard Reputations (Exalted / Paragon)
+    -- local data = C_GossipInfo.GetFriendshipReputation(factionID)
+    -- if data and data.friendshipFactionID > 0 then
+    --     -- Handle Friendship/Crony systems (like The Severed Threads)
+    --     return data.nextThreshold == nil
+    -- else
+    --     -- Standard Rep (Exalted is Rank 8)
+    --     local _, _, standingID = GetFactionInfoByID(factionID)
+    --     return standingID and standingID >= 8
+    -- end
+
+    return false
 end

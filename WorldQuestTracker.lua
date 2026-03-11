@@ -9,7 +9,9 @@ local SavedVars = nil
 
 
 local function QuestSortKey(minutes)
-    if minutes > 60 then
+    if minutes > 24 * 60 then
+        minutes = 24 * 60
+    elseif minutes > 60 then
         return math.floor(minutes / 60) * 60
     end
     return minutes
@@ -245,7 +247,7 @@ function WorldQuestsPanelMixin:RefreshList()
         entry.minutesLeft = quest.minutesLeft
         entry.zone = quest.zone
         entry.amount = quest.amount
-        entry.repReward = quest.repReward
+        entry.faction = quest.faction
 
         local atlas, width, height = QuestUtil.GetWorldQuestAtlasInfo(quest.ID, quest.tagInfo, false)
         if atlas then
@@ -270,7 +272,7 @@ function WorldQuestsPanelMixin:RefreshList()
 
         if entry.amount > 0 then
             entry.Reward:SetText(GetMoneyString(entry.amount, true))
-        elseif entry.repReward then
+        elseif entry.faction then
             entry.Reward:SetText("Reputation")
         else
             entry.Reward:SetText("n/a")
@@ -284,9 +286,13 @@ function WorldQuestsPanelMixin:RefreshList()
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
             GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
-            if self.amount > 0 then
-                GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
-            end
+            -- if self.amount > 0 then
+            --     GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
+            -- end
+            -- if self.faction then
+            --     GameTooltip:AddLine("|cFFFFD100Faction:|r "..self.faction, 1, 1, 1, true)
+            -- end
+            GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
             GameTooltip:Show()
         end)
 

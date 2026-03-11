@@ -7,7 +7,7 @@
             <KeyValue key="displayMode" value="4" type="number"/>
             <KeyValue key="activeAtlas" value="coin-gold" type="string"/>
             <KeyValue key="inactiveAtlas" value="coin-gold" type="string"/>
-            <KeyValue key="tooltipText" value="Gold Quests" type="string"/>
+            <KeyValue key="tooltipText" value="World Quests" type="string"/>
         </KeyValues>
         <Anchors>
             <Anchor point="TOP" relativeKey="$parent.MapLegendTab" relativePoint="BOTTOM" x="0" y="-3"/>

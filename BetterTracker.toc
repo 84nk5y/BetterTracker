@@ -9,6 +9,7 @@
 
 ProfessionData.lua
 ProfessionTracker.lua
+ParagonData.lua
 ParagonTracker.lua
 WorldQuestData.lua
 WorldQuestTracker.xml
