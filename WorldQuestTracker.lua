@@ -286,13 +286,16 @@ function WorldQuestsPanelMixin:RefreshList()
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText("Time left: "..panel:FormatQuestTime(self.minutesLeft), NORMAL_FONT_COLOR:GetRGB())
             GameTooltip:AddLine("|cFFFFD100Zone:|r "..self.zone, 1, 1, 1, true)
-            -- if self.amount > 0 then
-            --     GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
-            -- end
-            -- if self.faction then
-            --     GameTooltip:AddLine("|cFFFFD100Faction:|r "..self.faction, 1, 1, 1, true)
-            -- end
-            GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
+            if self.faction then
+                GameTooltip:AddLine("|cFFFFD100Faction:|r "..self.faction, 1, 1, 1, true)
+            end
+            if not InCombatLockdown() then
+                GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
+            else
+                if self.amount > 0 then
+                    GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
+                end
+            end
             GameTooltip:Show()
         end)
 
