@@ -289,12 +289,9 @@ function WorldQuestsPanelMixin:RefreshList()
             if self.faction then
                 GameTooltip:AddLine("|cFFFFD100Faction:|r "..self.faction, 1, 1, 1, true)
             end
-            if not InCombatLockdown() then
-                GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
-            else
-                if self.amount > 0 then
-                    GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
-                end
+            -- GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
+            if self.amount > 0 then
+                GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
             end
             GameTooltip:Show()
         end)
