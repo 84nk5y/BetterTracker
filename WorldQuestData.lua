@@ -4,10 +4,11 @@ local _, _A = ...
 -- Use /dump C_Map.GetBestMapForUnit("player") in-game to find map IDs
 _A.WorldQuestsZones = {
     [2424] = "Silvermoon - Isle of Quel'Danas",
-    [2393] = "Silvermoon City",
+    [2393] = "Silvermoon",
     [2395] = "Eversong Woods",
     [2437] = "Zul'Aman",
-    [2576] = "Harandar",
+    [2413] = "Harandar",
+    [2576] = "Harandar - The Den",
     [2405] = "Voidstorm",
     [2444] = "Voidstorm - Bloodplains",
 }
@@ -67,7 +68,7 @@ function _A.ProcessWorldQuest(questID, savedVars)
     local mapInfo = C_Map.GetMapInfo(mapID)
     local rewards = _A:GetRewardsForQuest(questID)
 
-    if rewards.gold > savedVars.MinGoldReward or rewards.faction then
+    if rewards.gold > savedVars.MinGoldReward then -- or rewards.faction then
         local quest = {
             ID = questID,
             name = C_QuestLog.GetTitleForQuestID(questID) or "Unknown Quest",
