@@ -23,6 +23,7 @@ local WorldQuestTrackerMixin = {}
 function WorldQuestTrackerMixin:Setup()
     self.worldQuestsToScan = {}
     self.updatingUI = false
+    self.pendingZoneScan = false
 
     self.worldQuestBadge = self:CreateBadge("TOP")
 
@@ -31,6 +32,7 @@ function WorldQuestTrackerMixin:Setup()
     self:RegisterEvent("QUEST_DATA_LOAD_RESULT")
     self:RegisterEvent("QUEST_TURNED_IN")
     self:RegisterEvent("QUEST_REMOVED")
+    self:RegisterEvent("QUEST_POI_UPDATE")
 
     self:SetScript("OnEvent", self.OnEvent)
 end
@@ -94,8 +96,32 @@ function WorldQuestTrackerMixin:RefreshQuestRewards()
     end
 
     self.worldQuestsToScan = {}
+    self.pendingZoneScan = true
 
-    -- Staggered scanning to reduce FPS impact
+    -- Phase 1: staggered requests to warm the server-side quest cache per zone.
+    for i, mapID in ipairs(mapList) do
+        C_Timer.After(i * 0.05, function()
+            C_TaskQuest.GetQuestsOnMap(mapID)
+        end)
+    end
+
+    -- Phase 2: fallback timer in case QUEST_POI_UPDATE already fired or never comes
+    C_Timer.After(#mapList * 0.05 + 1.5, function()
+        if self.pendingZoneScan then
+            self.pendingZoneScan = false
+            self:ScanAllZones(mapList)
+        end
+    end)
+end
+
+function WorldQuestTrackerMixin:ScanAllZones(mapList)
+    if not mapList then
+        mapList = {}
+        for mapID in pairs(_A.WorldQuestsZones) do
+            table.insert(mapList, mapID)
+        end
+    end
+
     local function ScanMapBatch(index)
         local mapID = mapList[index]
         local quests = C_TaskQuest.GetQuestsOnMap(mapID)
@@ -103,17 +129,11 @@ function WorldQuestTrackerMixin:RefreshQuestRewards()
         if quests then
             for _, qInfo in ipairs(quests) do
                 local questID = qInfo.questId or qInfo.questID
+                if questID and C_QuestLog.IsWorldQuest(questID) and not self.worldQuestsToScan[questID] then
+                    C_TaskQuest.RequestPreloadRewardData(questID)
+                    C_QuestLog.RequestLoadQuestByID(questID)
 
-                if questID then
-                    if C_QuestLog.IsWorldQuest(questID) and not self.worldQuestsToScan[questID] then
-
-                        -- try to force server to provide quest data
-                        C_TaskQuest.GetQuestZoneID(questID)
-                        C_TaskQuest.RequestPreloadRewardData(questID)
-                        C_QuestLog.RequestLoadQuestByID(questID)
-
-                        self.worldQuestsToScan[questID] = mapID
-                    end
+                    self.worldQuestsToScan[questID] = mapID
                 end
             end
         end
@@ -154,6 +174,13 @@ function WorldQuestTrackerMixin:OnEvent(event, ...)
         SavedVars = BT_SavedVars["WorldQuestTracker"]
     elseif event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(1, function() self:RefreshQuestRewards() end)
+    elseif event == "QUEST_POI_UPDATE" then
+        -- Server has returned fresh zone quest data; scan immediately
+        -- if we were waiting on it, cancelling the fallback timer via the flag
+        if self.pendingZoneScan then
+            self.pendingZoneScan = false
+            self:ScanAllZones()
+        end
     elseif event == "QUEST_DATA_LOAD_RESULT" then
         local questID, success = ...
         if success and questID then
