@@ -57,7 +57,8 @@ function WorldQuestTrackerMixin:CreateBadge(point)
 
     badge.text = badge:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     badge.text:SetPoint("CENTER", badge, "CENTER", 0, 0)
-    badge.text:SetText("-")
+
+    badge:Hide()
 
     return badge
 end
