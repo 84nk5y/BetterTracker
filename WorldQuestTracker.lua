@@ -82,7 +82,7 @@ end
 function WorldQuestTrackerMixin:ProcessQuest(questID)
     if not questID then return end
 
-    if _A.ProcessWorldQuest(questID, SavedVars) then
+    if _A:ProcessWorldQuest(questID, SavedVars) then
         if not self.updatingUI then
             self.updatingUI = true
             C_Timer.After(1, function() self:UpdateUI() end)

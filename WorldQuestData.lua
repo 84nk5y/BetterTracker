@@ -54,7 +54,7 @@ function FoundWorldQuests:Clear()
 end
 
 
-function _A.ProcessWorldQuest(questID, savedVars)
+function _A:ProcessWorldQuest(questID, savedVars)
     local mapID = C_TaskQuest.GetQuestZoneID(questID)
     local existingQuest = FoundWorldQuests:GetQuests(questID)
 
