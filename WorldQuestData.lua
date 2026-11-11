@@ -1,8 +1,8 @@
-local _, _A = ...
+local _, ADDON_DATA = ...
 
 
 -- Use /dump C_Map.GetBestMapForUnit("player") in-game to find map IDs
-_A.WorldQuestsZones = {
+ADDON_DATA.WorldQuestsZones = {
     [2424] = "Silvermoon - Isle of Quel'Danas",
     [2393] = "Silvermoon",
     [2395] = "Eversong Woods",
@@ -14,11 +14,11 @@ _A.WorldQuestsZones = {
     [2600] = "Naigtal",
     [2512] = "The Coiled Isle",
 }
-local WorldQuestsZones = _A.WorldQuestsZones
+local WorldQuestsZones = ADDON_DATA.WorldQuestsZones
 
 
-_A.FoundWorldQuests = { quests = {}, count = 0 }
-local FoundWorldQuests = _A.FoundWorldQuests
+ADDON_DATA.FoundWorldQuests = { quests = {}, count = 0 }
+local FoundWorldQuests = ADDON_DATA.FoundWorldQuests
 
 function FoundWorldQuests:GetQuests()
     return self.quests
@@ -54,7 +54,7 @@ function FoundWorldQuests:Clear()
 end
 
 
-function _A:ProcessWorldQuest(questID, savedVars)
+function ADDON_DATA:ProcessWorldQuest(questID, savedVars)
     local mapID = C_TaskQuest.GetQuestZoneID(questID)
     local existingQuest = FoundWorldQuests:GetQuests(questID)
 
@@ -68,7 +68,7 @@ function _A:ProcessWorldQuest(questID, savedVars)
     if not C_QuestLog.IsWorldQuest(questID) then return false end
 
     local mapInfo = C_Map.GetMapInfo(mapID)
-    local rewards = _A:GetRewardsForQuest(questID)
+    local rewards = ADDON_DATA:GetRewardsForQuest(questID)
 
     if rewards.gold > savedVars.MinGoldReward then -- or rewards.faction then
         local quest = {
@@ -88,7 +88,7 @@ function _A:ProcessWorldQuest(questID, savedVars)
     return false
 end
 
-function _A:GetRewardsForQuest(questID)
+function ADDON_DATA:GetRewardsForQuest(questID)
     local rewards = { gold = 0, reputation = false }
 
     rewards.gold = GetQuestLogRewardMoney(questID) or 0
@@ -109,14 +109,14 @@ function _A:GetRewardsForQuest(questID)
         factionID = select(2, C_TaskQuest.GetQuestInfoByQuestID(questID))
     end
 
-    if factionID and not _A:IsFactionMaxed(factionID) then
-        rewards.faction = _A.ParagonFactions[factionID]
+    if factionID and not ADDON_DATA:IsFactionMaxed(factionID) then
+        rewards.faction = ADDON_DATA.ParagonFactions[factionID]
     end
 
     return rewards
 end
 
-function _A:IsFactionMaxed(factionID)
+function ADDON_DATA:IsFactionMaxed(factionID)
     -- 1. Check Major Factions
     if C_MajorFactions.HasMaximumRenown(factionID) then
         return true

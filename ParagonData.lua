@@ -1,6 +1,6 @@
-local _, _A = ...
+local _, ADDON_DATA = ...
 
-_A.ParagonFactions = {
+ADDON_DATA.ParagonFactions = {
     -- Midnight
     [2710] = "Silvermoon Court",
     [2696] = "Amani Tribe",

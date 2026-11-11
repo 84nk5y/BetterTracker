@@ -1,14 +1,14 @@
-local _, _A = ...
+local _, ADDON_DATA = ...
 
 
-_A.ObjectiveGroups = {
+ADDON_DATA.ObjectiveGroups = {
     gathering = { isUnique = false, free = true, name = "Gathering" },
     treasures = { isUnique = false, free = true, name = "Treasures/Dirt" },
     weeklyQuest = { isUnique = true, free = false, name = "Weekly Quest" },
     disenchanting = { isUnique = false, free = false, name = "Disenchanting" }
 }
 
-_A.Objectives = {
+ADDON_DATA.Objectives = {
 -- [ProfessionID] = { treasures = {QuestID}, weeklyQuest = {QuestID} }
     [171] = { treasures = {93528, 93529}, weeklyQuest = {93690} }, -- Alchemy
     [164] = { treasures = {93530, 93531}, weeklyQuest = {93691} }, -- Blacksmithing
@@ -23,7 +23,7 @@ _A.Objectives = {
     [393] = { gathering = {88534, 88549, 88536, 88537, 88530, 88529}, weeklyQuest = {93710, 93711, 93712, 93713, 93714} }  -- Skinning
 }
 
-_A.Currencies = {
+ADDON_DATA.Currencies = {
     [171] = {ID = 3150}, -- Alchemy
     [164] = {ID = 3151}, -- Blacksmithing
     [202] = {ID = 3259}, -- Engineering
@@ -37,4 +37,4 @@ _A.Currencies = {
     [393] = {ID = 3159}  -- Skinning
 }
 
-_A.ExpansionPrefix = "Midnight"
+ADDON_DATA.ExpansionPrefix = "Midnight"

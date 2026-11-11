@@ -1,4 +1,4 @@
-local _, _A = ...
+local _, ADDON_DATA = ...
 
 
 ParagonTrackerMixin = {}
@@ -87,7 +87,7 @@ function ParagonTrackerMixin:GetAvailableParagonCaches()
     self.availableParagonCaches = {}
 
     local factionList = {}
-    for factionID in pairs(_A.ParagonFactions) do
+    for factionID in pairs(ADDON_DATA.ParagonFactions) do
         table.insert(factionList, factionID)
     end
 
@@ -97,7 +97,7 @@ function ParagonTrackerMixin:GetAvailableParagonCaches()
 
         for i = startIndex, endIndex do
             local factionID = factionList[i]
-            local factionName = _A.ParagonFactions[factionID]
+            local factionName = ADDON_DATA.ParagonFactions[factionID]
 
             if C_Reputation.IsFactionParagonForCurrentPlayer(factionID) then
                 local _, _, rewardQuestID, hasRewardPending = C_Reputation.GetFactionParagonInfo(factionID)

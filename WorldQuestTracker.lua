@@ -1,11 +1,12 @@
-local ADDON_NAME, _A = ...
+local ADDON_NAME, ADDON_DATA = ...
+local ADDON_MSG = "|cffB0C4DE["..ADDON_NAME.."]|r"
 
 local TAB_DISPLAY_MODE = 4
 local SCAN_RATE = 5 * 60
 
 
 BT_SavedVars = BT_SavedVars or { WorldQuestTracker = { MinGoldReward = 500 * 10000 } }
-local SavedVars = nil
+local SavedVars = BT_SavedVars.WorldQuestTracker
 
 
 local function QuestSortKey(minutes)
@@ -64,7 +65,7 @@ function WorldQuestTrackerMixin:CreateBadge(point)
 end
 
 function WorldQuestTrackerMixin:UpdateUI()
-    local count = _A.FoundWorldQuests:GetCount()
+    local count = ADDON_DATA.FoundWorldQuests:GetCount()
     if count > 0 then
         self.worldQuestBadge.text:SetText(count)
         self.worldQuestBadge:Show()
@@ -82,7 +83,7 @@ end
 function WorldQuestTrackerMixin:ProcessQuest(questID)
     if not questID then return end
 
-    if _A:ProcessWorldQuest(questID, SavedVars) then
+    if ADDON_DATA:ProcessWorldQuest(questID, SavedVars) then
         if not self.updatingUI then
             self.updatingUI = true
             C_Timer.After(1, function() self:UpdateUI() end)
@@ -92,7 +93,7 @@ end
 
 function WorldQuestTrackerMixin:RefreshQuestRewards()
     local mapList = {}
-    for mapID in pairs(_A.WorldQuestsZones) do
+    for mapID in pairs(ADDON_DATA.WorldQuestsZones) do
         table.insert(mapList, mapID)
     end
 
@@ -118,7 +119,7 @@ end
 function WorldQuestTrackerMixin:ScanAllZones(mapList)
     if not mapList then
         mapList = {}
-        for mapID in pairs(_A.WorldQuestsZones) do
+        for mapID in pairs(ADDON_DATA.WorldQuestsZones) do
             table.insert(mapList, mapID)
         end
     end
@@ -153,7 +154,7 @@ end
 
 function WorldQuestTrackerMixin:RefreshQuests()
     for questID in pairs(self.worldQuestsToScan) do
-        if not _A.FoundWorldQuests:GetQuest(questID) then
+        if not ADDON_DATA.FoundWorldQuests:GetQuest(questID) then
             self:ProcessQuest(questID)
         end
     end
@@ -165,14 +166,14 @@ end
 function WorldQuestTrackerMixin:ResetQuests()
     self.worldQuestsToScan = {}
 
-    _A.FoundWorldQuests:Clear()
+    ADDON_DATA.FoundWorldQuests:Clear()
 
     self:RefreshQuestRewards()
 end
 
 function WorldQuestTrackerMixin:OnEvent(event, ...)
     if event == "VARIABLES_LOADED" then
-        SavedVars = BT_SavedVars["WorldQuestTracker"]
+        SavedVars = BT_SavedVars.WorldQuestTracker
     elseif event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(1, function() self:RefreshQuestRewards() end)
     elseif event == "QUEST_POI_UPDATE" then
@@ -190,8 +191,8 @@ function WorldQuestTrackerMixin:OnEvent(event, ...)
     elseif event == "QUEST_TURNED_IN" or event == "QUEST_REMOVED" then
         local questID = ...
 
-        if _A.FoundWorldQuests:GetQuest(questID) then
-            _A.FoundWorldQuests:RemoveQuest(questID)
+        if ADDON_DATA.FoundWorldQuests:GetQuest(questID) then
+            ADDON_DATA.FoundWorldQuests:RemoveQuest(questID)
 
             if not self.updatingUI then
                 self.updatingUI = true
@@ -209,10 +210,10 @@ WorldQuestTracker:Setup()
 QuestLogMicroButton:HookScript("OnEnter", function(self)
     if GameTooltip:IsOwned(self) then
         local totalGold = 0
-        for _, data in pairs(_A.FoundWorldQuests:GetQuests()) do
+        for _, data in pairs(ADDON_DATA.FoundWorldQuests:GetQuests()) do
             totalGold = totalGold + data.amount
         end
-        GameTooltip:AddLine("\nTotal Gold available: " .. GetMoneyString(totalGold, true), 1, 1, 1, true)
+        GameTooltip:AddLine("\nTotal Gold available: ".. GetMoneyString(totalGold, true), 1, 1, 1, true)
         GameTooltip:Show()
     end
 end)
@@ -244,7 +245,7 @@ WorldQuestsPanelMixin = {}
 
 function WorldQuestsPanelMixin:RefreshList()
     local sortedQuests = {}
-    for _, quest in pairs(_A.FoundWorldQuests:GetQuests()) do
+    for _, quest in pairs(ADDON_DATA.FoundWorldQuests:GetQuests()) do
         quest.minutesLeft = C_TaskQuest.GetQuestTimeLeftMinutes(quest.ID) or quest.minutesLeft or 0
         table.insert(sortedQuests, quest)
     end
@@ -321,7 +322,7 @@ function WorldQuestsPanelMixin:RefreshList()
                 if self.faction then
                     GameTooltip:AddLine("|cFFFFD100Faction:|r "..self.faction, 1, 1, 1, true)
                 end
-                -- GameTooltip_AddQuestRewardsToTooltip(GameTooltip, self.questID)
+                -- GameTooltipADDON_DATAddQuestRewardsToTooltip(GameTooltip, self.questID)
                 if self.amount > 0 then
                     GameTooltip:AddLine("|cFFFFD100Gold:|r "..GetMoneyString(self.amount, true), 1, 1, 1, true)
                 end
@@ -374,14 +375,14 @@ SlashCmdList["WorldQuestTracker"] = function(arg)
         local value = tonumber(msg:match("^set%s+(%d+)$"))
         if value and value >= 1 then
             SavedVars.MinGoldReward = value * 10000
-            print("|cffB0C4DE["..ADDON_NAME.."]|r Minimum gold reward set to "..GetMoneyString(SavedVars.MinGoldReward, true))
+            print(ADDON_MSG.." Minimum gold reward set to "..GetMoneyString(SavedVars.MinGoldReward, true))
 
             WorldQuestTracker:ResetQuests()
         end
     elseif msg == "show" then
-        print("|cffB0C4DE["..ADDON_NAME.."]|r Minimum gold reward is "..GetMoneyString(SavedVars.MinGoldReward, true))
+        print(ADDON_MSG.." Minimum gold reward is "..GetMoneyString(SavedVars.MinGoldReward, true))
     else
-        print("|cffB0C4DE["..ADDON_NAME.."]|r Commands:")
+        print(ADDON_MSG.." Commands:")
         print("  /bwq set <value> - Set the minimum gold reward amount")
         print("  /bwq show - Prints the minimum gold reward amount")
     end
